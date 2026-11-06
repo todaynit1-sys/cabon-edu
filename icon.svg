@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="초록별 퀴즈 마을">
+  <rect width="512" height="512" rx="112" fill="#a9dcf6"/>
+  <ellipse cx="256" cy="420" rx="170" ry="34" fill="#7fcd6b"/>
+  <circle cx="256" cy="262" r="150" fill="#58b4ea"/>
+  <path d="M170 190c30-22 70-18 84 6s-10 44-40 46-62-30-44-52zM300 300c26-14 62-6 70 18s-20 40-48 36-44-40-22-54zM190 330c18-8 40 0 40 16s-20 24-36 18-20-28-4-34z" fill="#7ccb6a"/>
+  <ellipse cx="256" cy="118" rx="70" ry="22" fill="#ffffff"/>
+  <circle cx="206" cy="262" r="16" fill="#1d1d22"/><circle cx="306" cy="262" r="16" fill="#1d1d22"/>
+  <circle cx="212" cy="255" r="5" fill="#fff"/><circle cx="312" cy="255" r="5" fill="#fff"/>
+  <circle cx="170" cy="300" r="20" fill="#ffb0b8"/><circle cx="342" cy="300" r="20" fill="#ffb0b8"/>
+  <path d="M226 304q30 28 60 0" fill="none" stroke="#7a2f33" stroke-width="12" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>초록별 퀴즈 마을 — 지구 열 내리기 대작전</title>
+<meta name="description" content="3D 마을을 걸으며 AI 친구들과 탄소중립 퀴즈를 풀고, 아기 지구의 열을 내리는 어린이 환경교육 앱">
+<meta name="theme-color" content="#7fcd6b">
+<meta property="og:title" content="초록별 퀴즈 마을 — 지구 열 내리기 대작전">
+<meta property="og:description" content="퀴즈를 맞히면 탄소 구름이 나비로! AI 친구와 함께 배우는 어린이 탄소중립">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" crossorigin media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<canvas id="c" aria-label="초록별 퀴즈 마을 3D 화면. 친구를 누르면 걸어가서 이야기해요."></canvas>
+<div id="labels" aria-hidden="true"></div>
+
+<header id="hud" hidden>
+  <div class="fever card hot" aria-live="polite">
+    <div class="fever-face" id="feverFace">🥵</div>
+    <div class="fever-body">
+      <div class="fever-title">지구 열 <b id="feverText">아주 뜨거워요</b></div>
+      <div class="fever-bar"><i id="feverBar" style="width:100%"></i></div>
+    </div>
+  </div>
+  <nav class="stamps card" id="stamps" aria-label="마을 도장 (누르면 데려다줘요)"></nav>
+  <div class="tools">
+    <button id="btnAsk" class="tool ask"><span aria-hidden="true">🐻‍❄️</span><b>얼음이에게 묻기</b></button>
+    <button id="btnSound" class="tool icon" aria-label="소리 켜기/끄기">🔊</button>
+    <button id="btnMenu" class="tool icon" aria-label="설정">⚙️</button>
+  </div>
+</header>
+<div id="hint" class="hint" hidden>👆 친구나 땅을 누르면 걸어가요 · ⌨️ 방향키로 걷고 E로 말 걸기</div>
+<button id="btnTalk" class="talk-btn" hidden>💬 <span id="talkLabel">말 걸기</span></button>
+
+<section id="start" class="screen">
+  <div class="start-card">
+    <div class="logo" aria-hidden="true"><span class="globe">🌏</span><span class="pack">🧊</span></div>
+    <h1>초록별 퀴즈 마을</h1>
+    <p class="sub">지구 열 내리기 대작전</p>
+    <p class="lead">아기 지구 <b>동글이</b>가 온실가스 담요 때문에 열이 나요!<br>마을 친구들의 퀴즈를 풀어서 열을 내려 주세요.</p>
+    <div class="step"><h2>몇 학년이에요?</h2><div class="grades" id="grades"></div></div>
+    <div class="step"><h2>내 캐릭터를 골라요</h2><div class="avatars" id="avatars"></div></div>
+    <button id="btnStart" class="big-btn">퀴즈 마을로 출발! 🚀</button>
+    <button id="aiPill" class="ai-pill"></button>
+  </div>
+</section>
+
+<div id="modal" class="modal" hidden><div class="mcard" id="mcard" role="dialog" aria-modal="true" aria-live="polite"></div></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="nogl" class="nogl" hidden></div>
+<div id="printArea" aria-hidden="true"></div>
+
+<script src="js/config.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/data.js"></script>
+<script src="js/safety.js"></script>
+<script src="js/kidai.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+window.THREE = THREE;
+window.dispatchEvent(new Event('three-ready'));
+</script>
+<script>
+setTimeout(function () {
+  if (!window.THREE) { var n = document.getElementById('nogl'); n.textContent = '3D 엔진을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'; n.hidden = false; }
+}, 15000);
+</script>
+</body>
+</html>
