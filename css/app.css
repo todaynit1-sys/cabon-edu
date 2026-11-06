@@ -85,8 +85,27 @@ body:has(#start:not([hidden])) #labels { display: none; }
 .face i { position: absolute; left: 18px; top: 22px; width: 4px; height: 6px; border-radius: 3px; background: #1d1d22; box-shadow: 12px 0 0 #1d1d22; z-index: 1; }
 .big-btn { margin-top: 18px; width: 100%; border: 0; border-radius: 24px; padding: 18px; font-family: var(--cute); font-size: 26px; color: #fff; background: var(--green); box-shadow: 0 7px 0 var(--green-d); transition: transform .1s; }
 .big-btn:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--green-d); }
-.ai-pill { margin-top: 14px; border: 0; background: #f2efe6; color: var(--muted); border-radius: 999px; padding: 8px 14px; font-size: 13px; }
+.ai-pill { margin-top: 14px; border: 0; background: #f2efe6; color: var(--muted); border-radius: 999px; padding: 8px 14px; font-size: 13px; line-height: 1.4; }
 .ai-pill.on { background: #e9f7ff; color: var(--sky-d); }
+.ai-pill.need { background: #fff3c4; color: #8a6a10; font-weight: 700; box-shadow: 0 3px 0 #f2cf62; }
+.ai-pill.load { background: #e9f7ff; color: var(--sky-d); }
+.tool.aichip { font-family: var(--cute); font-size: 16px; white-space: nowrap; }
+.tool.aichip.on { background: #e9f7ff; color: var(--sky-d); }
+.tool.aichip.need { background: #fff3c4; color: #8a6a10; }
+.tool.aichip.load { background: #e9f7ff; color: var(--sky-d); }
+.tool.aichip.off { color: var(--muted); }
+.models { display: grid; gap: 8px; }
+.mdl { border: 3px solid var(--line); background: #fff; border-radius: 16px; padding: 10px 14px; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.mdl b { font-size: 16px; }
+.mdl small { color: var(--muted); font-size: 12px; }
+.mdl em { font-style: normal; color: var(--green-d); font-weight: 700; }
+.mdl.on { border-color: var(--sky-d); background: #f0f8ff; box-shadow: 0 3px 0 var(--sky-d); }
+.wlprog { margin-top: 12px; }
+.wlprog .bar { height: 16px; border-radius: 10px; background: #e7f4ff; overflow: hidden; box-shadow: inset 0 2px 0 rgba(0,0,0,.06); }
+.wlprog .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8fd3ff, #47b4ff); border-radius: 10px; transition: width .3s; }
+ul.list.big li { font-size: 14.5px; margin: 6px 0; }
+details.adv { margin: 10px 0; border: 2px dashed var(--line); border-radius: 14px; padding: 8px 12px; }
+details.adv summary { cursor: pointer; font-size: 14px; color: var(--muted); }
 
 /* ---------- 모달 공통 ---------- */
 .modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 14px 14px max(18px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(36, 65, 74, 0) 30%, rgba(36, 65, 74, .22)); animation: fadein .2s; }

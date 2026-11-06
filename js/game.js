@@ -157,7 +157,9 @@ var Q = null;
 function friendHead(z) { return '<div class="who" style="--zc:' + z.color + '"><span class="ava">' + ANIMAL_EMOJI[z.animal] + '</span><div><b>' + esc(z.friend) + '</b><small>' + esc(z.name) + '</small></div></div>'; }
 function aiBadge() {
   var c = AI.loadCfg();
-  return AI.ready() ? '<span class="ai-on">✨ AI 맞춤 출제 켜짐 · ' + esc(c.model || c.provider) + '</span>' : '<span class="ai-off">📗 기본 문제로 풀어요 (AI 연결 안 됨)</span>';
+  if (AI.ready()) return '<span class="ai-on">✨ AI 맞춤 출제 켜짐 · ' + esc(c.provider === 'webllm' ? modelName(c.model) + ' (이 기기)' : (c.model || c.provider)) + '</span>';
+  var s = aiStateText();
+  return '<span class="ai-off">📗 기본 문제로 풀어요' + (s.cls === 'load' ? ' (무료 AI 준비 중)' : s.cls === 'need' ? ' · 무료 AI를 켜면 맞춤 문제를 만들어요' : '') + '</span>';
 }
 function openFriend(zone) {
   var z = ZMAP[zone], st = state.zones[zone];
@@ -175,39 +177,83 @@ function openFriend(zone) {
     if (a.dataset.act === 'start') { SFX.click(); prepareQuiz(zone); }
   };
 }
+/* ------------------------------------------------------------
+   다음 마을 문제 미리 만들기 (AI가 느려도 아이가 기다리지 않게)
+   — 한 번에 한 마을씩, 아이가 기다리는 요청이 오면 양보했다가 나중에 다시 만듭니다.
+   ------------------------------------------------------------ */
+var PF = {}, pfTries = {}, pfTimer = 0;
+function schedulePrefetch(delay) {
+  clearTimeout(pfTimer);
+  pfTimer = setTimeout(prefetchNext, delay == null ? 1500 : delay);
+}
+function prefetchNext() {
+  if (!AI.ready()) return;
+  if (Object.keys(PF).some(function (k) { return !PF[k].res; })) return; // 이미 하나 만드는 중
+  var next = ZONES.find(function (z) { return !state.zones[z.id].cleared && !PF[z.id] && (pfTries[z.id] || 0) < 3; });
+  if (!next) return;
+  var zone = next.id, entry = { grade: state.grade, res: null };
+  PF[zone] = entry;
+  entry.p = AI.makeQuiz(zone, state.grade, 5, state.seen, null, { background: true }).then(function (r) {
+    if (PF[zone] !== entry) return r;
+    if (r.source === 'bank') { // 실패하거나 아이 요청에 양보함 → 지우고 나중에 다시
+      delete PF[zone];
+      if (!r.report.interrupted) pfTries[zone] = (pfTries[zone] || 0) + 1;
+      schedulePrefetch(r.report.interrupted ? 8000 : 3000);
+    } else { entry.res = r; schedulePrefetch(1500); }
+    refreshAiChip();
+    return r;
+  });
+  refreshAiChip();
+}
+function takePrefetch(zone) {
+  var e = PF[zone];
+  if (!e || e.grade !== state.grade) { if (e) delete PF[zone]; return null; }
+  return e;
+}
+
 function prepareQuiz(zone) {
   var z = ZMAP[zone], g = GRADES[state.grade];
   var ctrl = new AbortController(), done = false, t0 = Date.now();
-  var go = function (res) { if (done) return; done = true; clearInterval(tick); startQuiz(zone, res); };
+  var go = function (res) { if (done) return; done = true; clearInterval(tick); delete PF[zone]; startQuiz(zone, res); schedulePrefetch(4000); };
+  var tick = 0;
+  var pre = takePrefetch(zone);
+  if (pre && pre.res) { go(pre.res); return; } // 미리 만들어 둔 문제가 있으면 바로!
   if (!AI.ready()) { go({ items: AI.pickBank(zone, state.grade, 5, state.seen), source: 'bank', report: { reason: 'AI 미연결' } }); return; }
   mcard.classList.add('locked');
   mcard.innerHTML = friendHead(z) +
     '<div class="making"><div class="bounce">' + ANIMAL_EMOJI[z.animal] + '</div>' +
-    '<p><b>' + esc(z.friend) + '</b>가 <b>' + esc(g.label) + '</b>에 꼭 맞는 문제를 만들고 있어요</p>' +
-    '<ol class="pipeline"><li class="on">✨ AI가 근거 카드로 문제 만들기</li><li>🔎 근거 문장 대조하기</li><li>🧐 AI 교차 검토</li></ol>' +
+    '<p><b>' + esc(z.friend) + '</b>가 <b>' + esc(g.label) + '</b>에 꼭 맞는 문제를 만들고 있어요' + (pre ? ' (미리 만들던 문제를 마무리하는 중)' : '') + '</p>' +
+    (AI.isWeb()
+      ? '<ol class="pipeline"><li class="on">✨ AI가 검수된 문제를 ' + esc(g.label) + ' 생활 장면으로 다시 쓰기</li><li>🔎 정답이 바뀌지 않았는지 확인</li><li>🧐 AI 교차 검토</li></ol>'
+      : '<ol class="pipeline"><li class="on">✨ AI가 근거 카드로 문제 만들기</li><li>🔎 근거 문장 대조하기</li><li>🧐 AI 교차 검토</li></ol>') +
     '<p class="sec"><span id="sec">0</span>초</p></div>' +
     '<div class="btns"><button class="ghost" data-act="skip">기다리기 싫어요! 기본 문제로 바로 풀기</button></div>';
-  var tick = setInterval(function () {
+  var slow = AI.isWeb() ? 3 : 1;
+  tick = setInterval(function () {
     var s = Math.floor((Date.now() - t0) / 1000), el = $('#sec'); if (el) el.textContent = s;
-    var li = mcard.querySelectorAll('.pipeline li'); if (li.length) { li[1].classList.toggle('on', s >= 4); li[2].classList.toggle('on', s >= 8); }
+    var li = mcard.querySelectorAll('.pipeline li'); if (li.length) { li[1].classList.toggle('on', s >= 4 * slow); li[2].classList.toggle('on', s >= 8 * slow); }
   }, 500);
   mcard.onclick = function (e) {
     var a = e.target.closest('[data-act]'); if (!a) return;
     if (a.dataset.act === 'skip') { ctrl.abort(); go({ items: AI.pickBank(zone, state.grade, 5, state.seen), source: 'bank', report: { reason: '아이가 기본 문제 선택' } }); }
   };
+  if (pre) { pre.p.then(function (r) { if (r.source !== 'bank') go(r); else if (!done) AI.makeQuiz(zone, state.grade, 5, state.seen, ctrl.signal).then(go); }); return; }
   AI.makeQuiz(zone, state.grade, 5, state.seen, ctrl.signal).then(go);
 }
 function startQuiz(zone, res) {
   mcard.classList.add('locked');
   Q = { zone: zone, items: res.items, i: 0, correct: 0, source: res.source, report: res.report, cur: null, retried: false };
   state.zones[zone].plays++;
-  if (res.source !== 'bank') toast(res.source === 'ai' ? '✨ AI가 만든 새 문제 5개! 모두 근거 확인을 통과했어요' : '✨ AI 문제 ' + res.report.passed + '개 + 기본 문제로 준비했어요');
+  var rw = res.report && res.report.mode === 'rewrite';
+  if (res.source !== 'bank') toast(res.source === 'ai' ? (rw ? '✨ AI가 ' + GRADES[state.grade].label + ' 눈높이로 다시 쓴 문제 5개! 정답 확인을 통과했어요' : '✨ AI가 만든 새 문제 5개! 모두 근거 확인을 통과했어요')
+    : '✨ AI ' + (rw ? '다시 쓴' : '') + ' 문제 ' + res.report.passed + '개 + 기본 문제로 준비했어요');
   renderQ(Q.items[0]);
 }
 function dots() {
   return '<div class="dots">' + Q.items.map(function (_, i) { return '<i class="' + (i < Q.i ? 'done' : i === Q.i ? 'now' : '') + '"></i>'; }).join('') + '</div>';
 }
 function srcBadge(it) {
+  if (it.source === 'ai' && it.mode === 'rewrite') return '<button class="src ai" data-act="ev">✨ AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 다시 쓴 문제 · 정답 확인 ✓</button>';
   if (it.source === 'ai') return '<button class="src ai" data-act="ev">✨ AI가 만든 문제 · 근거 확인 ✓</button>';
   return '<button class="src bank" data-act="ev">📗 기본 문제 · 근거 보기</button>';
 }
@@ -215,6 +261,7 @@ function evBox(it) {
   var c = AI.card(it.ev); if (!c) return '';
   return '<div class="evbox" hidden><b>📄 어디서 나온 말이야? — ' + esc(c.title) + '</b><p>' + esc(c.text) + '</p>' +
     (it.quote ? '<p class="quote">AI가 짚은 근거 문장: “' + esc(it.quote) + '”</p>' : '') +
+    (it.origQ ? '<p class="quote">사람이 검수한 원래 문제: “' + esc(it.origQ) + '”</p>' : '') +
     '<small>' + esc((it.check && it.check.by) || '') + ' · 근거 카드 ' + esc(c.id) + '</small></div>';
 }
 function renderQ(it) {
@@ -500,23 +547,28 @@ function openMenu() {
   openModal('<div class="who" style="--zc:#7d93a6"><span class="ava">⚙️</span><div><b>설정</b><small>보호자·선생님용</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="set-sec"><h3>학년</h3><div class="pick" data-k="grade">' + GRADES.map(function (g) { return '<button class="pk ' + (state.grade === g.id ? 'on' : '') + '" data-v="' + g.id + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
     '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 문제와 대답을 소리 내어 읽어 주기</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
-    '<div class="set-sec"><h3>AI 모델 연결 <small>(모델 비종속 · 주소와 모델명만 바꾸면 교체)</small></h3>' +
+    '<div class="set-sec"><h3>AI <small>(모델 비종속 · 연결 방식만 바꾸면 교체)</small></h3>' +
     '<label class="tg"><input type="checkbox" id="aiOn" ' + (c.enabled ? 'checked' : '') + '> AI 기능 쓰기 (끄면 기본 문제은행으로만 진행)</label>' +
+    '<p class="fine">지금 상태: <b>' + esc(aiStateText().long) + '</b></p>' +
+    '<div class="btns left"><button class="primary" data-act="websetup">브라우저 안 무료 AI 설정</button></div>' +
+    '<details class="adv"' + (c.provider !== 'webllm' ? ' open' : '') + '><summary>다른 AI 서버에 연결하기 (기관 공통기반 · Ollama 등)</summary>' +
     '<label class="lbl">빠른 설정<select id="aiPreset"><option value="">직접 입력</option>' + presets.map(function (p) { return '<option value="' + p.id + '">' + esc(p.label) + '</option>'; }).join('') + '</select></label>' +
     '<p class="fine" id="presetNote"></p>' +
-    '<label class="lbl">연결 방식<select id="aiProv">' + ['openai', 'anthropic', 'claude-artifact'].map(function (p) { return '<option ' + (c.provider === p ? 'selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>' +
+    '<label class="lbl">연결 방식<select id="aiProv">' + ['webllm', 'openai', 'anthropic', 'claude-artifact'].map(function (p) { return '<option ' + (c.provider === p ? 'selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>' +
     '<label class="lbl">주소 (Base URL)<input id="aiUrl" value="' + esc(c.baseUrl) + '" placeholder="http://localhost:11434/v1"></label>' +
     '<label class="lbl">모델 이름<input id="aiModel" value="' + esc(c.model) + '" placeholder="gemma3:12b"></label>' +
     '<label class="lbl">API 키 (필요할 때만)<input id="aiKey" type="password" value="' + esc(c.apiKey || '') + '" placeholder="로컬 모델은 비워 두세요"></label>' +
     '<label class="tg"><input type="checkbox" id="aiKeep" ' + (c.keepKey ? 'checked' : '') + '> 이 기기에 키 저장 (공용 PC에서는 끄세요)</label>' +
-    '<label class="tg"><input type="checkbox" id="aiCross" ' + (c.crossCheck ? 'checked' : '') + '> AI가 만든 문제를 AI로 한 번 더 교차 검토 (조금 느려져요)</label>' +
-    '<div class="btns left"><button class="ghost" data-act="test">연결 테스트</button><button class="primary" data-act="saveai">저장하고 사용</button></div><p class="fine" id="testOut"></p></div>' +
+    '<div class="btns left"><button class="ghost" data-act="test">연결 테스트</button><button class="primary" data-act="saveai">저장하고 사용</button></div><p class="fine" id="testOut"></p></details>' +
+    '<label class="tg"><input type="checkbox" id="aiCross" ' + (c.crossCheck ? 'checked' : '') + '> AI가 만든 문제를 AI로 한 번 더 교차 검토 (조금 느려져요)</label></div>' +
     '<div class="set-sec"><h3>AI 활동 기록</h3><p class="fine">AI가 문제를 몇 개 만들었고, 근거 대조와 교차 검토에서 몇 개를 걸렀는지 볼 수 있어요.</p><div class="btns left"><button class="ghost" data-act="log">AI 기록 보기</button></div></div>' +
-    '<div class="set-sec"><h3>보호자·선생님 안내</h3><ul class="fine list"><li>로그인이 없고, 이름·학교 같은 개인정보를 받지 않아요. 진행 기록은 이 기기 브라우저에만 저장돼요.</li><li>AI에게 보내는 내용은 아이 질문(개인정보는 ○○로 가림)과 근거 카드뿐이며, 위에서 설정한 모델 주소로만 보내요. 로컬 모델(Ollama 등)을 쓰면 PC 밖으로 나가지 않아요.</li><li>AI가 만든 문제는 근거 카드와 자동 대조하고, 통과한 것만 아이에게 보여요. 수치·내용은 체험용 예시이며 실제 운영 전 감수가 필요해요.</li></ul>' +
+    '<div class="set-sec"><h3>보호자·선생님 안내</h3><ul class="fine list"><li>로그인이 없고, 이름·학교 같은 개인정보를 받지 않아요. 진행 기록은 이 기기 브라우저에만 저장돼요.</li><li>기본 AI(브라우저 안 무료 AI)는 이 기기 안에서만 돌아가서 아이가 쓴 글이 밖으로 나가지 않아요. 다른 AI 서버를 연결하면 아이 질문(개인정보는 ○○로 가림)과 근거 카드만 그 주소로 보내요.</li><li>AI가 만든 문제는 근거 카드와 자동 대조하고, 통과한 것만 아이에게 보여요. 수치·내용은 체험용 예시이며 실제 운영 전 감수가 필요해요.</li></ul>' +
     '<div class="btns left"><button class="ghost danger" data-act="reset">처음부터 다시 하기</button></div></div>', { cls: 'menu' });
   var notePreset = function () { var p = presets.find(function (x) { return x.id === $('#aiPreset').value; }); $('#presetNote').textContent = p ? p.note : ''; };
   $('#aiPreset').onchange = function () { var p = presets.find(function (x) { return x.id === this.value; }, this); if (p) { $('#aiProv').value = p.provider; $('#aiUrl').value = p.baseUrl; $('#aiModel').value = p.model; } notePreset(); };
   var form = function () { return Object.assign(AI.loadCfg(), { enabled: $('#aiOn').checked, provider: $('#aiProv').value, baseUrl: $('#aiUrl').value.trim(), model: $('#aiModel').value.trim(), apiKey: $('#aiKey').value.trim(), keepKey: $('#aiKeep').checked, crossCheck: $('#aiCross').checked }); };
+  $('#aiOn').onchange = function () { var cc = AI.loadCfg(); cc.enabled = this.checked; AI.saveCfg(cc); reprobe(); };
+  $('#aiCross').onchange = function () { var cc = AI.loadCfg(); cc.crossCheck = this.checked; AI.saveCfg(cc); };
   $('#optTTS').onchange = function () { TTS.on = this.checked; setPref('gq.tts', this.checked ? '1' : '0'); };
   $('#optMute').onchange = function () { SFX.setMuted(this.checked); if (this.checked) TTS.stop(); updateSoundBtn(); };
   mcard.onclick = function (e) {
@@ -527,6 +579,7 @@ function openMenu() {
     if (act === 'test') { var out = $('#testOut'); out.textContent = '연결하는 중…'; AI.test(form()).then(function (t) { out.textContent = '✅ 연결 성공: ' + t; }, function (err) { out.textContent = '❌ 연결 실패: ' + err.message; }); }
     if (act === 'saveai') { AI.saveCfg(form()); AI.probe().then(function () { updateAiPill(); toast(AI.ready() ? '✨ AI 연결을 저장했어요' : 'AI 없이 기본 문제로 진행해요' + (AI.status().msg ? ' (' + AI.status().msg + ')' : '')); }); }
     if (act === 'log') openLog();
+    if (act === 'websetup') openAiSetup();
     if (act === 'reset') { if (confirm('지금까지의 진행(도장·별·숙제)을 모두 지우고 처음부터 할까요?')) { localStorage.removeItem(SAVE_KEY); location.reload(); } }
   };
 }
@@ -536,7 +589,7 @@ function openLog() {
   var rows = L.length ? L.map(function (r) {
     var d = r.detail || {}, body = '';
     if (r.kind === '출제') {
-      body = esc(ZMAP[d.zone] ? ZMAP[d.zone].name : d.zone) + ' · ' + esc(d.grade) + ' — 요청 ' + d.asked + '개 → <b>통과 ' + d.passed + '개</b> · ' + esc(d.cross) + ' · ' + ((d.ms || 0) / 1000).toFixed(1) + '초';
+      body = esc(ZMAP[d.zone] ? ZMAP[d.zone].name : d.zone) + ' · ' + esc(d.grade) + (d.mode ? ' · ' + esc(d.mode) : '') + ' — 요청 ' + d.asked + '개 → <b>통과 ' + d.passed + '개</b> · ' + esc(d.cross) + ' · ' + ((d.ms || 0) / 1000).toFixed(1) + '초';
       if (d.dropped && d.dropped.length) body += '<ul>' + d.dropped.map(function (x) { return '<li>걸러짐: “' + esc(String(x.q).slice(0, 40)) + '” — ' + esc(x.reason) + '</li>'; }).join('') + '</ul>';
     } else body = esc(Object.keys(d).map(function (k) { var v = d[k]; return k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v); }).join(' · ').slice(0, 160));
     return '<li><span class="lt">' + fmtTime(r.t) + '</span><b>' + esc(r.kind) + '</b> <small>' + esc(r.model) + '</small><div>' + body + '</div></li>';
@@ -550,15 +603,116 @@ function openLog() {
     if (a.dataset.act === 'clear') { AI.clearLog(); openLog(); }
   };
 }
+/* ------------------------------------------------------------
+   AI 상태 표시 · 브라우저 안 무료 AI 켜기
+   ------------------------------------------------------------ */
+var WEB = window.GreenLLM.web;
+function modelInfo(id) { return WEB.models.find(function (m) { return m.id === id; }) || { id: id, label: id, gb: '?' }; }
+function modelName(id) { return modelInfo(id).label.split(' (')[0]; }
+function aiStateText() {
+  var c = AI.loadCfg(), st = AI.status();
+  if (!c.enabled) return { cls: 'off', short: 'AI 꺼짐', long: 'AI 꺼짐 · 기본 문제로 플레이' };
+  if (c.provider === 'webllm') {
+    var w = WEB.state();
+    if (st.state === 'fail') return { cls: 'off', short: '기본 문제', long: '이 기기에서는 무료 AI를 쓸 수 없어요 (' + st.msg + ') · 기본 문제로 플레이' };
+    if (w.ready && w.model === c.model) return { cls: 'on', short: '✨ AI 켜짐', long: '✨ 무료 AI 켜짐 · ' + modelName(c.model) + ' (이 기기에서 실행)' };
+    if (w.loading) return { cls: 'load', short: '⏳ AI ' + Math.round(w.progress * 100) + '%', long: '⏳ 무료 AI 준비 중 ' + Math.round(w.progress * 100) + '% · 그동안 기본 문제로 놀 수 있어요' };
+    return { cls: 'need', short: '✨ AI 켜기', long: '✨ 무료 AI 켜기 · 이 기기에서 실행 (처음 한 번 약 ' + modelInfo(c.model).gb + 'GB 내려받기)' };
+  }
+  if (st.state === 'checking') return { cls: 'load', short: '🔌 확인 중', long: '🔌 AI 모델 확인 중… (' + (c.model || c.provider) + ')' };
+  if (AI.ready()) return { cls: 'on', short: '✨ AI 켜짐', long: '✨ AI 연결: ' + (c.model || c.provider) };
+  return { cls: 'off', short: '기본 문제', long: '📗 AI 연결 안 됨' + (st.msg ? ' (' + st.msg + ')' : '') + ' · 기본 문제로 플레이' };
+}
 function updateAiPill() {
-  var c = AI.loadCfg(), p = $('#aiPill'), st = AI.status();
-  if (!p) return;
-  if (st.state === 'checking') p.innerHTML = '🔌 AI 모델 확인 중… (' + esc(c.model || c.provider) + ')';
-  else if (AI.ready()) p.innerHTML = '✨ AI 연결: <b>' + esc(c.model || c.provider) + '</b> · 바꾸기';
-  else p.innerHTML = '📗 AI 연결 안 됨' + (st.msg ? ' (' + esc(st.msg) + ')' : '') + ' · 기본 문제로 플레이 · <u>연결하기</u>';
-  p.classList.toggle('on', AI.ready() && st.state !== 'checking');
+  var p = $('#aiPill'); if (!p) return;
+  var s = aiStateText();
+  p.innerHTML = esc(s.long) + (s.cls === 'need' ? '' : s.cls === 'on' ? ' · <u>바꾸기</u>' : s.cls === 'off' ? ' · <u>설정</u>' : '');
+  p.className = 'ai-pill ' + s.cls;
+  refreshAiChip();
+}
+function refreshAiChip() {
+  var b = $('#btnAI'); if (!b) return;
+  var s = aiStateText(), pf = Object.keys(PF).filter(function (k) { return PF[k].res; }).length;
+  var making = Object.keys(PF).some(function (k) { return !PF[k].res; });
+  b.textContent = s.short + (s.cls === 'on' && making ? ' · 문제 준비 중' : s.cls === 'on' && pf ? ' · 준비 ' + pf : '');
+  b.className = 'tool aichip ' + s.cls;
+  b.hidden = !AI.loadCfg().enabled;
 }
 function reprobe() { AI.probe().then(updateAiPill); updateAiPill(); }
+function onAiButton() { var c = AI.loadCfg(); if (c.provider === 'webllm' || !c.enabled) openAiSetup(); else openMenu(); }
+
+var wasReady = false, lastWebPaint = 0;
+WEB.on(function (w) {
+  var now = Date.now();
+  if (w.ready || !w.loading || now - lastWebPaint > 250) { lastWebPaint = now; updateAiPill(); paintWebSetup(); }
+  var r = AI.ready();
+  if (r && !wasReady) { toast('✨ 무료 AI 준비 완료! 이제 AI가 학년에 맞춰 문제를 만들어요', 3600); schedulePrefetch(1200); }
+  wasReady = r;
+});
+
+function openAiSetup() {
+  var c = AI.loadCfg();
+  var sel = c.provider === 'webllm' ? c.model : WEB.models[0].id;
+  var cached = {};
+  openModal('<div class="who" style="--zc:#4aa3df"><span class="ava">✨</span><div><b>브라우저 안 무료 AI</b><small>보호자·선생님용 안내</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<ul class="fine list big">' +
+    '<li><b>무료</b>예요. 가입·API 키·서버가 필요 없어요.</li>' +
+    '<li>AI가 <b>이 기기의 브라우저 안에서</b> 돌아가서, 아이가 쓴 글이 기기 밖으로 나가지 않아요.</li>' +
+    '<li>처음 한 번 모델을 내려받아 브라우저에 저장해요(와이파이 권장). 다음부터는 저장본을 바로 써요.</li>' +
+    '<li>최신 크롬·엣지(WebGPU)가 필요해요. 기기에 따라 문제 5개를 만드는 데 30초~2분쯤 걸려서, 다음 마을 문제를 미리 만들어 둬요.</li></ul>' +
+    '<h3 class="qh">모델 고르기</h3><div class="models" id="wlModels"></div>' +
+    '<div class="wlprog" id="wlProg" hidden><div class="bar"><i id="wlBar"></i></div><p class="fine" id="wlText"></p></div>' +
+    '<div class="btns" id="wlBtns"></div>', { cls: 'menu websetup' });
+  function paintModels() {
+    $('#wlModels').innerHTML = WEB.models.map(function (m) {
+      return '<button class="mdl ' + (m.id === sel ? 'on' : '') + '" data-m="' + m.id + '"><b>' + esc(m.label) + '</b><small>' + esc(m.license) + (cached[m.id] ? ' · <em>이 기기에 저장됨</em>' : '') + '</small></button>';
+    }).join('');
+  }
+  openAiSetup.sel = function () { return sel; };
+  paintModels(); paintWebSetup();
+  WEB.models.forEach(function (m) { WEB.cached(m.id).then(function (y) { cached[m.id] = y; if ($('#wlModels')) { paintModels(); paintWebSetup(); } openAiSetup.cached = cached; }); });
+  openAiSetup.cached = cached;
+  mcard.onclick = function (e) {
+    var m = e.target.closest('[data-m]'); if (m) { sel = m.dataset.m; SFX.click(); paintModels(); paintWebSetup(); return; }
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    var act = a.dataset.act;
+    if (act === 'close' || act === 'hide') closeModal();
+    if (act === 'menu') openMenu();
+    if (act === 'load') {
+      var cc = AI.loadCfg(); cc.enabled = true; cc.provider = 'webllm'; cc.model = sel; cc.baseUrl = ''; AI.saveCfg(cc);
+      AI.probe().then(function (st) {
+        if (st.state === 'fail') { $('#wlText').textContent = '이 기기에서는 쓸 수 없어요: ' + st.msg; $('#wlProg').hidden = false; updateAiPill(); return; }
+        WEB.load(sel).then(function () { AI.probe().then(updateAiPill); }, function (err) { paintWebSetup(); toast('무료 AI를 켜지 못했어요: ' + String(err && err.message || err).slice(0, 60), 4200); });
+        paintWebSetup(); updateAiPill();
+      });
+    }
+    if (act === 'remove') {
+      if (!confirm(modelName(sel) + ' 모델을 이 기기에서 지울까요? 다시 쓰려면 또 내려받아야 해요.')) return;
+      WEB.remove(sel).then(function () { cached[sel] = false; AI.probe().then(updateAiPill); paintModels(); paintWebSetup(); toast('이 기기에서 지웠어요'); });
+    }
+  };
+}
+function paintWebSetup() {
+  if (modal.hidden || !mcard.classList.contains('websetup') || !openAiSetup.sel) return;
+  var sel = openAiSetup.sel(), w = WEB.state(), cached = openAiSetup.cached || {};
+  var prog = $('#wlProg'), btns = $('#wlBtns'); if (!prog || !btns) return;
+  var readyThis = w.ready && w.model === sel, loadingThis = w.loading && w.loadingModel === sel;
+  prog.hidden = !(loadingThis || w.error);
+  if (loadingThis) { $('#wlBar').style.width = Math.round(w.progress * 100) + '%'; $('#wlText').textContent = Math.round(w.progress * 100) + '% · ' + String(w.text || '').slice(0, 90); }
+  else if (w.error) { $('#wlBar').style.width = '0%'; $('#wlText').textContent = '오류: ' + w.error.slice(0, 120); }
+  if (readyThis) btns.innerHTML = '<span class="ai-on">✨ 켜져 있어요 · ' + esc(modelName(sel)) + '</span><button class="ghost" data-act="close">닫기</button><button class="ghost danger" data-act="remove">이 기기에서 지우기</button>';
+  else if (loadingThis) btns.innerHTML = '<button class="primary big" data-act="hide">숨기고 계속 놀기 ▶</button>';
+  else btns.innerHTML = '<button class="primary big" data-act="load" data-autofocus>' + (cached[sel] ? '바로 켜기 ✨' : '내려받고 켜기 (약 ' + modelInfo(sel).gb + 'GB)') + '</button><button class="ghost" data-act="close">나중에</button>' + (cached[sel] ? '<button class="ghost danger" data-act="remove">이 기기에서 지우기</button>' : '');
+}
+/* 이 기기에 모델이 이미 저장돼 있으면, 내려받기 없이 조용히 켭니다 */
+function autoLoadWeb() {
+  var c = AI.loadCfg();
+  if (!c.enabled || c.provider !== 'webllm') return;
+  WEB.supported().then(function (s) {
+    if (!s.ok) return;
+    WEB.cached(c.model).then(function (y) { if (y) WEB.load(c.model).then(function () { AI.probe().then(updateAiPill); }, function () {}); });
+  });
+}
 function updateSoundBtn() { $('#btnSound').textContent = SFX.muted() ? '🔇' : '🔊'; }
 
 /* ------------------------------------------------------------
@@ -579,7 +733,8 @@ function renderStart() {
 }
 $('#grades').addEventListener('click', function (e) { var b = e.target.closest('[data-g]'); if (!b) return; SFX.init(); SFX.click(); state.grade = +b.dataset.g; save(); renderStart(); });
 $('#avatars').addEventListener('click', function (e) { var b = e.target.closest('[data-av]'); if (!b) return; SFX.init(); SFX.click(); state.avatar = +b.dataset.av; save(); renderStart(); if (world) world.setAvatar(AVATARS[state.avatar]); });
-$('#aiPill').addEventListener('click', function () { openMenu(); });
+$('#aiPill').addEventListener('click', function () { SFX.init(); onAiButton(); });
+$('#btnAI').addEventListener('click', function () { SFX.init(); onAiButton(); });
 $('#btnStart').addEventListener('click', function () {
   SFX.init(); SFX.click(); TTS.pick();
   $('#start').hidden = true; $('#hud').hidden = false;
@@ -598,6 +753,7 @@ $('#btnSound').addEventListener('click', function () { SFX.init(); SFX.setMuted(
 updateSoundBtn();
 renderStart();
 reprobe();
+autoLoadWeb();
 
 /* ------------------------------------------------------------
    3D 시작
