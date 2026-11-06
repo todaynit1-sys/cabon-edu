@@ -649,16 +649,79 @@ function create(canvas, opts) {
   /* ---------------- 플레이어 · 얼음이 ---------------- */
   var player = { pos: new THREE.Vector3(0, 0, 7.5), vel: new THREE.Vector3(), heading: Math.PI, rig: null, radius: 0.42 };
   var playerObj = new THREE.Group(); scene.add(playerObj);
+  var hatKind = 'none';
   function setAvatar(look) {
     if (player.rig) playerObj.remove(player.rig.root);
     player.rig = makePerson(look); playerObj.add(player.rig.root);
+    setHat(hatKind);
+  }
+
+  /* 꾸미기 모자 (별을 모으면 열림) */
+  function buildHat(kind) {
+    var g = new THREE.Group();
+    var m = function (geo, c, x, y, z) { var o = new THREE.Mesh(geo, pm(c, 0.2)); o.position.set(x, y, z); o.castShadow = true; g.add(o); return o; };
+    if (kind === 'sprout') {
+      var bd = m(new THREE.TorusGeometry(0.43, 0.03, 6, 24), '#ffd166', 0, 0.62, 0); bd.rotation.x = Math.PI / 2;
+      m(new THREE.CylinderGeometry(0.025, 0.03, 0.26, 6), '#4f9f52', 0, 0.92, 0);
+      [-1, 1].forEach(function (s) { var l = m(new THREE.SphereGeometry(0.11, 12, 8), '#7ccb6a', s * 0.11, 1.06, 0); l.scale.set(1.5, 0.45, 0.8); l.rotation.z = s * 0.5; });
+    } else if (kind === 'bear') {
+      m(new THREE.TorusGeometry(0.44, 0.04, 6, 24, Math.PI), '#f4f4f0', 0, 0.36, 0); // 머리 위를 가로지르는 머리띠
+      [-1, 1].forEach(function (s) { m(new THREE.SphereGeometry(0.15, 14, 10), '#fbfbf8', s * 0.32, 0.78, -0.02); var inner = m(new THREE.SphereGeometry(0.075, 10, 8), '#f7b7c3', s * 0.32, 0.79, 0.08); inner.scale.z = 0.5; });
+    } else if (kind === 'flower') {
+      var FC = ['#ff8fab', '#ffd166', '#b8a1ff', '#8fd3ff', '#ff9f68', '#ffffff', '#7ccb6a'];
+      for (var i = 0; i < 9; i++) { var a = (i / 9) * Math.PI * 2; m(new THREE.SphereGeometry(i % 2 ? 0.07 : 0.1, 10, 8), FC[i % FC.length], Math.cos(a) * 0.4, 0.64 + Math.sin(i * 1.7) * 0.02, Math.sin(a) * 0.38); }
+    } else if (kind === 'earth') {
+      m(new THREE.SphereGeometry(0.47, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.42), '#58b4ea', 0, 0.38, 0);
+      [[0.2, 0.75, 0.15, 0.13], [-0.18, 0.72, -0.18, 0.11], [0.05, 0.82, -0.25, 0.09]].forEach(function (p) { var s = m(new THREE.SphereGeometry(p[3], 10, 8), '#7ccb6a', p[0], p[1], p[2]); s.scale.y = 0.5; });
+      m(new THREE.SphereGeometry(0.07, 8, 6), '#ffffff', 0, 0.86, 0);
+    } else if (kind === 'crown') {
+      m(new THREE.CylinderGeometry(0.3, 0.33, 0.18, 18, 1, true), '#ffc933', 0, 0.84, 0).material.side = THREE.DoubleSide;
+      for (var k = 0; k < 6; k++) { var b = (k / 6) * Math.PI * 2; m(new THREE.ConeGeometry(0.06, 0.16, 6), '#ffc933', Math.cos(b) * 0.3, 1.0, Math.sin(b) * 0.3); m(new THREE.SphereGeometry(0.035, 8, 6), k % 2 ? '#ff6b8b' : '#47b4ff', Math.cos(b) * 0.32, 0.84, Math.sin(b) * 0.32); }
+    }
+    return g;
+  }
+  function setHat(kind) {
+    hatKind = kind || 'none';
+    if (!player.rig) return;
+    if (player.rig.hat) { player.rig.head.remove(player.rig.hat); player.rig.hat = null; }
+    if (hatKind !== 'none') { player.rig.hat = buildHat(hatKind); player.rig.head.add(player.rig.hat); }
   }
   setAvatar({});
   var bear = makeCritter('bear', '#4aa3df');
   bear.root.position.set(-1.2, 0, 8.6); scene.add(bear.root);
   var bearPos = bear.root.position, bearHead = Math.PI, bearCol = addCircle(0, 0, 0.42); bearCol.off = true;
   var bearT = addTarget({ id: 'mascot', type: 'mascot', name: '얼음이', r: 2.2 }, bear.root, 0.9, 0.9); bearT.pos = bearPos;
-  addLabel('<b>얼음이</b><small>궁금한 거 물어봐!</small>', bear.root, 2.05, 'mascot');
+  addLabel('<b>얼음이</b><small>눌러서 같이 놀자!</small>', bear.root, 2.05, 'mascot');
+
+  /* ---------------- 반짝 씨앗 12개 (가까이 가면 저절로 주움) ---------------- */
+  var SEED_POS = [[-5, 8.2], [6, 7], [-10.5, 2], [10.5, 1.5], [-17.5, -3], [17.5, -2.5], [-4.5, -12.5], [5.5, -13.5], [-20, 7.5], [20, 8.5], [1, 17.5], [-8.5, 18]];
+  var seeds = [];
+  SEED_POS.forEach(function (p, i) {
+    var g = new THREE.Group(); g.position.set(p[0], 0, p[1]); scene.add(g);
+    var body = new THREE.Group(); body.position.y = 0.95; g.add(body);
+    var nut = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), pm('#d99a4e', 0.35)); nut.scale.set(1, 1.2, 1); body.add(nut);
+    var capM = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), pm('#8a5a35', 0.2)); capM.position.y = 0.08; body.add(capM);
+    var leaf = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 6), pm('#7ccb6a', 0.4)); leaf.position.set(0.08, 0.32, 0); leaf.scale.set(1.4, 0.4, 0.8); leaf.rotation.z = -0.5; body.add(leaf);
+    var ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.62, 28), new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.55, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; g.add(ring);
+    seeds.push({ id: 's' + i, g: g, body: body, ring: ring, taken: false, seed: i * 0.7 });
+  });
+  function takeSeed(s, instant) {
+    if (s.taken) return; s.taken = true;
+    if (instant) { scene.remove(s.g); return; }
+    burst(s.g.position.x, 1, s.g.position.z, ['#ffe27a', '#7ccb6a', '#ffffff'], 16);
+    tween(0.35, function (k) { s.body.position.y = 0.95 + k * 1.2; s.body.scale.setScalar(Math.max(0.01, 1 - k)); s.ring.material.opacity = 0.55 * (1 - k); }, function () { scene.remove(s.g); });
+  }
+
+  /* ---------------- 길 안내 화살표 ---------------- */
+  var guide = new THREE.Group(); scene.add(guide); guide.visible = false;
+  var gMat = new THREE.MeshBasicMaterial({ color: '#ffd166', transparent: true, opacity: 0.9, depthWrite: false });
+  var gArrow = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.75, 3), gMat); gArrow.rotation.x = Math.PI / 2; gArrow.position.set(0, 0.12, 1.7); gArrow.scale.set(1, 1, 0.25); guide.add(gArrow);
+  [1.05, 0.7].forEach(function (z, i) { var d = new THREE.Mesh(new THREE.CircleGeometry(0.09 - i * 0.02, 12), gMat); d.rotation.x = -Math.PI / 2; d.position.set(0, 0.08, z); guide.add(d); });
+  var guideTarget = null;
+
+  /* ---------------- 춤 · 하트 ---------------- */
+  var danceT = 0, danceBeat = 0;
 
   /* ---------------- 입력 ---------------- */
   var keys = {}, paused = false, moveTarget = null, pendingTalk = null, near = null;
@@ -667,7 +730,9 @@ function create(canvas, opts) {
     keys[e.code] = true;
     if (paused) return;
     if ((e.code === 'KeyE' || e.code === 'Space' || e.code === 'Enter') && near) { e.preventDefault(); opts.onTalk && opts.onTalk(near); }
+    else if (e.code === 'Space') { e.preventDefault(); jump(); }
   });
+  function jump() { if (player.rig && player.rig.jump <= 0) { player.rig.jump = 0.55; opts.onJump && opts.onJump(); } if (bear.jump <= 0) setTimeout(function () { bear.jump = 0.6; }, 120); }
   addEventListener('keyup', function (e) { keys[e.code] = false; });
   addEventListener('blur', function () { keys = {}; });
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), gp = new THREE.Vector3();
@@ -802,8 +867,27 @@ function create(canvas, opts) {
     resolve(player.pos, player.radius);
     var sp = Math.hypot(player.vel.x, player.vel.z);
     if (sp > 0.3) player.heading = angLerp(player.heading, Math.atan2(player.vel.x, player.vel.z), 1 - Math.exp(-14 * dt));
+    if (danceT > 0) { // 같이 춤추기: 빙글빙글 + 통통
+      danceT -= dt; danceBeat -= dt; player.heading += dt * 5.5;
+      if (danceBeat <= 0) { danceBeat = 0.55; if (player.rig) player.rig.jump = 0.5; bear.jump = 0.55; burst(player.pos.x + rand(-0.6, 0.6), 2.4, player.pos.z + rand(-0.6, 0.6), ['#b8a1ff', '#ff8fab', '#ffd166', '#8fd3ff'], 4); }
+    }
     playerObj.position.copy(player.pos); playerObj.rotation.y = player.heading;
     if (player.rig) animPerson(player.rig, sp, dt);
+
+    // 반짝 씨앗: 빙글빙글 떠 있다가 가까이 가면 줍기
+    seeds.forEach(function (s) {
+      if (s.taken) return;
+      s.body.rotation.y += dt * 1.6; s.body.position.y = 0.95 + Math.sin(T * 2.2 + s.seed) * 0.12;
+      s.ring.scale.setScalar(1 + Math.sin(T * 3 + s.seed) * 0.08);
+      if (dist2(player.pos, s.g.position) < 1.3) { takeSeed(s); opts.onSeed && opts.onSeed(s.id); }
+    });
+
+    // 길 안내 화살표
+    if (guideTarget) {
+      var gd = dist2(player.pos, guideTarget);
+      guide.visible = gd > 4.5 && !paused;
+      if (guide.visible) { guide.position.set(player.pos.x, 0, player.pos.z); guide.rotation.y = Math.atan2(guideTarget.x - player.pos.x, guideTarget.z - player.pos.z); gArrow.position.z = 1.7 + Math.sin(T * 5) * 0.15; }
+    } else guide.visible = false;
     if (pendingTalk && dist2(player.pos, pendingTalk.pos) < pendingTalk.r) {
       var t = pendingTalk; pendingTalk = null; moveTarget = null; player.vel.set(0, 0, 0);
       player.heading = Math.atan2(t.pos.x - player.pos.x, t.pos.z - player.pos.z);
@@ -868,6 +952,23 @@ function create(canvas, opts) {
 
   return {
     setAvatar: setAvatar,
+    setHat: setHat,
+    jump: jump,
+    dance: function (sec) { danceT = sec || 4; danceBeat = 0; },
+    hearts: function () { burst(bearPos.x, 1.9, bearPos.z, ['#ff8fab', '#ff6b8b', '#ffc2d1', '#ffffff'], 18); bear.jump = 0.6; bear.wave = 1.2; },
+    seedsTaken: function (map) { seeds.forEach(function (s) { if (map && map[s.id]) takeSeed(s, true); }); },
+    seedCount: function () { return seeds.length; },
+    nextSeed: function () { // 가장 가까운 남은 씨앗 위치
+      var best = null, bd = 1e9; seeds.forEach(function (s) { if (s.taken) return; var d = dist2(player.pos, s.g.position); if (d < bd) { bd = d; best = s; } });
+      return best ? { x: best.g.position.x, z: best.g.position.z } : null;
+    },
+    setGuide: function (t) {
+      if (!t) { guideTarget = null; return; }
+      if (typeof t === 'string') { var tg = targets.find(function (x) { return x.id === t; }); guideTarget = tg ? tg.pos : null; }
+      else guideTarget = new THREE.Vector3(t.x, 0, t.z);
+    },
+    walkToPos: function (p) { if (!p) return; pendingTalk = null; moveTarget = { x: p.x, z: p.z, stopR: 0.4 }; },
+    snapshot: function () { renderer.render(scene, camera); try { return canvas.toDataURL('image/jpeg', 0.92); } catch (e) { return ''; } },
     setClean: function (k, instant) { cleanTarget = clamp(k, 0, 1); if (instant) { clean = cleanTarget; applyClean(); } },
     popSmog: popSmog,
     removeSmog: removeSmogInstant,

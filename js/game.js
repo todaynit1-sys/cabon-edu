@@ -20,10 +20,33 @@ var ANIMAL_EMOJI = { rabbit: '🐰', raccoon: '🦝', squirrel: '🐿️', puppy
 var SAVE_KEY = 'gq.state.v1';
 function freshState() {
   var z = {}; ZONES.forEach(function (x) { z[x.id] = { partial: 0, cleared: false, stars: 0, plays: 0 }; });
-  return { grade: 1, avatar: 0, zones: z, seen: {}, homework: null, sprouts: 0, finale: false, name: '' };
+  return { grade: 1, avatar: 0, zones: z, seen: {}, homework: null, sprouts: 0, finale: false, name: '',
+    seeds: {}, games: {}, hat: 'none', unlocked: {}, tips: false };
+}
+/* 별: 퀴즈 별(마을마다 최대 5) + 놀이 별(놀이마다 최고 3) */
+function quizStars() { return ZONES.reduce(function (s, z) { return s + (state.zones[z.id].stars || 0); }, 0); }
+function gameStars() { return ZONES.reduce(function (s, z) { return s + ((state.games[z.id] || {}).stars || 0); }, 0); }
+function totalStars() { return quizStars() + gameStars(); }
+function seedCount() { return Object.keys(state.seeds || {}).length; }
+var SEED_TOTAL = 12;
+/* 꾸미기 모자 — 별을 모으면 열려요 */
+var HATS = [
+  { id: 'none', icon: '🙂', name: '모자 없음', need: 0 },
+  { id: 'sprout', icon: '🌱', name: '새싹 머리띠', need: 3 },
+  { id: 'bear', icon: '🐻‍❄️', name: '북극곰 귀', need: 8 },
+  { id: 'flower', icon: '🌼', name: '꽃 화관', need: 14 },
+  { id: 'earth', icon: '🌏', name: '아기 지구 모자', need: 20 },
+  { id: 'crown', icon: '👑', name: '반짝 별 왕관', seeds: SEED_TOTAL }
+];
+function hatOpen(h) { return h.seeds ? seedCount() >= h.seeds : totalStars() >= h.need; }
+function checkUnlocks() {
+  var fresh = HATS.filter(function (h) { return h.id !== 'none' && hatOpen(h) && !state.unlocked[h.id]; });
+  fresh.forEach(function (h) { state.unlocked[h.id] = 1; });
+  if (fresh.length) { save(); setTimeout(function () { SFX.fanfare(); toast('🎁 새 꾸미기가 열렸어요: ' + fresh.map(function (h) { return h.icon + ' ' + h.name; }).join(', ') + ' — 👕 꾸미기에서 써 봐요!', 4200); }, 900); }
 }
 var state = freshState();
 try { var saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (saved && saved.zones) state = Object.assign(freshState(), saved); } catch (e) {}
+['seeds', 'games', 'unlocked'].forEach(function (k) { if (!state[k] || typeof state[k] !== 'object') state[k] = {}; });
 function save() {
   var keys = Object.keys(state.seen); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.seen[k]; });
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
@@ -52,6 +75,23 @@ var SFX = (function () {
     correct: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, { dur: 0.2, delay: i * 0.08, type: 'triangle', vol: 0.13 }); }); },
     wrong: function () { tone(392, { f2: 320, dur: 0.22, vol: 0.1 }); tone(330, { f2: 262, dur: 0.3, delay: 0.14, vol: 0.1 }); },
     fanfare: function () { [523, 659, 784, 659, 784, 1047].forEach(function (f, i) { tone(f, { dur: 0.26, delay: i * 0.13, type: 'triangle', vol: 0.13 }); }); },
+    boing: function () { tone(220, { f2: 520, dur: 0.18, type: 'sine', vol: 0.1 }); },
+    seed: function () { [880, 1175, 1568].forEach(function (f, i) { tone(f, { dur: 0.12, delay: i * 0.06, type: 'triangle', vol: 0.1 }); }); },
+    dance: function () { [523, 587, 659, 784, 659, 587, 523, 659, 784, 880, 784, 659].forEach(function (f, i) { tone(f, { dur: 0.18, delay: i * 0.18, type: 'square', vol: 0.05 }); }); },
+    /* 잔잔한 오르골 배경음악 (음악 파일 없이 그때그때 만듦) */
+    bgm: (function () {
+      var on = false, timer = 0, step = 0;
+      var CH = [[523, 659, 784], [440, 523, 659], [349, 440, 523], [392, 494, 587]];
+      var MEL = [784, 659, 784, 880, 784, 659, 587, 659, 523, 587, 659, 784, 698, 659, 587, 523];
+      function tick() {
+        if (!on || !ctx || muted || document.hidden) return;
+        var c = CH[Math.floor(step / 8) % CH.length];
+        if (step % 8 === 0) c.forEach(function (f) { tone(f / 2, { dur: 2.2, type: 'sine', vol: 0.018 }); });
+        if (step % 2 === 0) tone(MEL[(step / 2) % MEL.length], { dur: 0.5, type: 'triangle', vol: 0.028 });
+        step++;
+      }
+      return function (v) { if (v === undefined) return on; on = !!v; clearInterval(timer); if (on) timer = setInterval(tick, 330); };
+    })(),
     muted: function () { return muted; },
     setMuted: function (m) { muted = m; setPref('gq.mute', m ? '1' : '0'); if (master) master.gain.value = m ? 0 : 0.5; }
   };
@@ -124,9 +164,42 @@ function updateHUD(instant) {
   $('#stamps').innerHTML = ZONES.map(function (z) {
     var st = state.zones[z.id];
     return '<button class="stamp-slot ' + (st.cleared ? 'done' : '') + '" data-walk="' + z.id + '" style="--zc:' + z.color + '" title="' + esc(z.name) + '"><span>' + z.icon + '</span><small>' + esc(z.short) + '</small>' + (st.cleared ? '<i>✓</i>' : '') + '</button>';
-  }).join('') + (state.sprouts ? '<span class="sprouts" title="실천 새싹">🌱<b>' + state.sprouts + '</b></span>' : '');
+  }).join('') + '<span class="counter" title="모은 별 (퀴즈 + 놀이)">⭐<b>' + totalStars() + '</b></span>' +
+    '<span class="counter" title="반짝 씨앗">🌰<b>' + seedCount() + '/' + SEED_TOTAL + '</b></span>' +
+    (state.sprouts ? '<span class="counter" title="실천 새싹">🌱<b>' + state.sprouts + '</b></span>' : '');
   if (world) world.setClean(k, instant);
+  updateQuest();
 }
+
+/* ------------------------------------------------------------
+   다음 할 일 안내 (+ 길 안내 화살표)
+   ------------------------------------------------------------ */
+var QUEST = null;
+function computeQuest() {
+  var next = ZONES.find(function (z) { return !state.zones[z.id].cleared; });
+  if (next) {
+    var st = state.zones[next.id];
+    return { ico: next.icon, txt: next.friend + '에게 가서 ' + (st.partial ? '퀴즈 마저 풀기' : '퀴즈 풀기'), target: next.id, go: '데려다줘' };
+  }
+  if (!state.finale) return { ico: '🌏', txt: '동글이에게 가 보기', target: 'earth', go: '데려다줘' };
+  if (seedCount() < SEED_TOTAL) return { ico: '🌰', txt: '반짝 씨앗 찾기 ' + seedCount() + '/' + SEED_TOTAL, target: 'seed', go: '가까운 씨앗' };
+  var g = ZONES.find(function (z) { return !(state.games[z.id] || {}).stars || state.games[z.id].stars < 3; });
+  if (g) return { ico: '🎮', txt: g.friend + '네 놀이에서 별 3개 받기', target: g.id, go: '데려다줘' };
+  return { ico: '🏆', txt: '모두 해냈어요! 친구들과 또 놀아요', target: null, go: '' };
+}
+function updateQuest() {
+  var el = $('#quest'); if (!el) return;
+  QUEST = computeQuest();
+  $('#questIco').textContent = QUEST.ico; $('#questTxt').textContent = QUEST.txt;
+  $('#questGo').textContent = QUEST.go ? QUEST.go + ' ▶' : ''; $('#questGo').hidden = !QUEST.go;
+  if (world) world.setGuide(QUEST.target === 'seed' ? world.nextSeed() : QUEST.target);
+}
+$('#quest').addEventListener('click', function () {
+  if (!QUEST || !world || !QUEST.target) return;
+  SFX.click();
+  if (QUEST.target === 'seed') { var p = world.nextSeed(); if (p) { world.walkToPos(p); world.setGuide(p); toast('🌰 반짝 씨앗을 찾으러 가요!'); } return; }
+  world.walkTo(QUEST.target);
+});
 $('#stamps').addEventListener('click', function (e) {
   var b = e.target.closest('[data-walk]'); if (!b || !world) return;
   SFX.click(); world.walkTo(b.dataset.walk); toast(ZMAP[b.dataset.walk].friend + '에게 걸어가요!');
@@ -147,7 +220,44 @@ function onTalk(t) {
   SFX.init(); SFX.click();
   if (t.type === 'friend') openFriend(t.zone);
   else if (t.type === 'earth') openEarth();
-  else if (t.type === 'mascot') openChat();
+  else if (t.type === 'mascot') openBear();
+}
+
+/* ------------------------------------------------------------
+   얼음이와 놀기 (묻기 · 춤추기 · 쓰다듬기)
+   ------------------------------------------------------------ */
+function openBear() {
+  if (world) world.focus('mascot');
+  var lines = ['뭐 하고 놀까?', '오늘도 지구 지키러 왔구나!', '나랑 같이 춤출래?', '궁금한 거 있으면 물어봐!'];
+  var line = lines[Math.floor(Math.random() * lines.length)];
+  openModal('<div class="who" style="--zc:#4aa3df"><span class="ava">🐻‍❄️</span><div><b>얼음이</b><small>아기 북극곰</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<p class="say">' + esc(line) + '</p>' +
+    '<div class="choice3"><button class="pick-big" data-act="ask"><span>💬</span><b>궁금한 거 묻기</b><small>지구 이야기 카드로 대답해요</small></button>' +
+    '<button class="pick-big" data-act="dance"><span>💃</span><b>같이 춤추기</b><small>빙글빙글 통통!</small></button>' +
+    '<button class="pick-big" data-act="pet"><span>💕</span><b>쓰다듬기</b><small>얼음이가 좋아해요</small></button></div>', { cls: 'bear' });
+  TTS.speak(line, 'bear');
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    var act = a.dataset.act;
+    if (act === 'close') closeModal();
+    if (act === 'ask') openChat();
+    if (act === 'dance') { closeModal(); if (world) world.dance(5); SFX.dance(); toast('💃 얼음이랑 빙글빙글 통통!'); }
+    if (act === 'pet') { closeModal(); if (world) world.hearts(); SFX.seed(); var say = ['헤헤, 간지러워!', '기분 최고야! 고마워', '나도 네가 좋아!']; var s = say[Math.floor(Math.random() * say.length)]; toast('💕 얼음이: ' + s); TTS.speak(s, 'bear'); }
+  };
+}
+
+/* ------------------------------------------------------------
+   반짝 씨앗
+   ------------------------------------------------------------ */
+var SEED_FACTS = ['H2', 'R2', 'F1', 'T2', 'E3', 'H3', 'R3', 'F3', 'T3', 'E4', 'R7', 'F5'];
+function onSeed(id) {
+  if (state.seeds[id]) return;
+  state.seeds[id] = 1; save();
+  var n = seedCount(), c = AI.card(SEED_FACTS[(n - 1) % SEED_FACTS.length]);
+  SFX.seed();
+  if (n >= SEED_TOTAL) { toast('🌰 반짝 씨앗을 모두 모았어요! 👑 반짝 별 왕관이 열렸어요!', 4500); SFX.fanfare(); if (world) world.cheer(); }
+  else toast('🌰 반짝 씨앗 ' + n + '/' + SEED_TOTAL + ' · 알고 있니? ' + (c ? c.text.split(/(?<=요\.)\s/)[0] : ''), 4200);
+  updateHUD(); checkUnlocks();
 }
 
 /* ------------------------------------------------------------
@@ -164,18 +274,43 @@ function aiBadge() {
 function openFriend(zone) {
   var z = ZMAP[zone], st = state.zones[zone];
   if (world) world.focus(zone);
-  var again = st.cleared;
-  var line = again ? '또 왔구나! 이번엔 새로운 문제로 도전해 볼래? 지난번엔 별 ' + st.stars + '개를 받았어!' : z.greet;
+  var again = st.cleared, G = window.GQGames.META[zone], gs = state.games[zone] || {};
+  var line = again ? '또 왔구나! 퀴즈를 다시 풀어도 좋고, 나랑 ' + G.title + ' 놀이를 해도 좋아!' : z.greet + ' 퀴즈가 끝나면 ' + G.title + ' 놀이도 같이 하자!';
+  var stars = function (n) { return '<em class="minis">' + [0, 1, 2].map(function (i) { return i < n ? '★' : '☆'; }).join('') + '</em>'; };
   openModal(friendHead(z) +
     '<p class="say">' + esc(line) + '</p>' +
+    '<div class="choice2">' +
+    '<button class="pick-big quiz" data-act="start" data-autofocus><span>📝</span><b>' + (again ? '퀴즈 다시 풀기' : '퀴즈 풀기') + '</b><small>' + (again ? '지난번 별 ' + st.stars + '개' : '맞히면 지구 열이 내려가요') + '</small></button>' +
+    '<button class="pick-big play" data-act="game"><span>' + G.icon + '</span><b>놀이: ' + esc(G.title) + '</b><small>' + (gs.best ? '최고 ' + gs.best + '점 ' + stars(gs.stars || 0) : '30초 동안 신나게!') + '</small></button></div>' +
     '<div class="meta">' + aiBadge() + '</div>' +
-    '<div class="btns"><button class="primary big" data-act="start" data-autofocus>' + (again ? '다시 도전!' : '퀴즈 시작!') + ' ▶</button><button class="ghost" data-act="close">나중에 할래</button></div>', { cls: 'friend' });
+    '<div class="btns"><button class="ghost" data-act="close">나중에 할래</button></div>', { cls: 'friend' });
   TTS.speak(line, 'friend');
   mcard.onclick = function (e) {
     var a = e.target.closest('[data-act]'); if (!a) return;
     if (a.dataset.act === 'close') closeModal();
     if (a.dataset.act === 'start') { SFX.click(); prepareQuiz(zone); }
+    if (a.dataset.act === 'game') { SFX.click(); openGame(zone); }
   };
+}
+
+/* ------------------------------------------------------------
+   마을 놀이 (미니게임)
+   ------------------------------------------------------------ */
+var stopGame = null;
+function openGame(zone) {
+  var z = ZMAP[zone];
+  openModal('', { cls: 'mg locked', onClose: function () { if (stopGame) { stopGame(); stopGame = null; } } });
+  stopGame = window.GQGames.start(zone, mcard, {
+    sfx: SFX, best: (state.games[zone] || {}).best || 0,
+    speak: function (t) { TTS.speak(t, 'friend'); },
+    onEnd: function (r) {
+      var g = state.games[zone] || { best: 0, stars: 0, plays: 0 };
+      g.plays = (g.plays || 0) + 1; g.best = Math.max(g.best || 0, r.score); g.stars = Math.max(g.stars || 0, r.stars);
+      state.games[zone] = g; save(); updateHUD(); checkUnlocks();
+      if (world) world.cheer();
+    },
+    onQuit: function () { stopGame = null; closeModal(); toast(z.friend + ': 또 놀자! ' + window.GQGames.META[zone].icon); }
+  });
 }
 /* ------------------------------------------------------------
    다음 마을 문제 미리 만들기 (AI가 느려도 아이가 기다리지 않게)
@@ -301,16 +436,17 @@ function answer(raw) {
   markSeen(it);
   var fb = mcard.querySelector('.fb'); fb.hidden = false;
   if (ok) {
-    SFX.correct(); Q.correct++;
+    SFX.correct(); Q.correct++; Q.streak = (Q.streak || 0) + 1;
+    confetti(Q.streak >= 3 ? 36 : 18);
     var st = state.zones[Q.zone]; if (!st.cleared) st.partial = Math.min(5, st.partial + 1);
     save(); if (world) { world.popSmog(Q.zone); world.cheer(); } updateHUD();
     fb.className = 'fb good';
-    fb.innerHTML = '<b class="big">딩동댕! 🎉</b><p>' + esc(it.explain) + '</p><p class="smogmsg">뭉게 하나가 나비가 되어 날아갔어요 🦋</p>' +
+    fb.innerHTML = '<b class="big">딩동댕! 🎉' + (Q.streak >= 2 ? ' <span class="combo">🔥 ' + Q.streak + '연속 정답!</span>' : '') + '</b><p>' + esc(it.explain) + '</p><p class="smogmsg">뭉게 하나가 나비가 되어 날아갔어요 🦋</p>' +
       '<div class="btns"><button class="primary big" data-act="next" data-autofocus>' + (isLast() ? '결과 보기 ⭐' : '다음 문제 ▶') + '</button></div>';
     TTS.speak('딩동댕! ' + it.explain, 'friend');
     fb.querySelector('button').focus();
   } else {
-    SFX.wrong();
+    SFX.wrong(); Q.streak = 0;
     fb.className = 'fb oops';
     fb.innerHTML = '<b class="big">앗, 아쉬워! 괜찮아 😊</b><div class="bear-say"><span class="ava">🐻‍❄️</span><p class="thinking">얼음이가 다시 알려 줄게… <i class="dots3"><b></b><b></b><b></b></i></p></div>';
     AI.reExplain(it, chosen, state.grade).then(function (r) {
@@ -350,22 +486,92 @@ function finishStation() {
   save(); Q = null;
   SFX.fanfare();
   mcard.classList.remove('locked');
-  var aiLine = src === 'bank' ? '' : '<p class="airep">✨ 이번 문제는 AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 만들었어요. 근거 카드와 대조해서 통과한 문제만 냈어요' +
+  var rw = rep.mode === 'rewrite';
+  var aiLine = src === 'bank' ? '' : '<p class="airep">✨ 이번 문제는 AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 ' + (rw ? '다시 썼어요. 정답이 바뀌지 않았는지 확인한 문제만 냈어요' : '만들었어요. 근거 카드와 대조해서 통과한 문제만 냈어요') +
     (rep.dropped && rep.dropped.length ? ' (확인에서 걸러진 문제 ' + rep.dropped.length + '개)' : '') + '.</p>';
+  var G = window.GQGames.META[zone], goGame = false;
   openModal('<div class="clear-top" style="--zc:' + z.color + '"><div class="big-stamp">' + z.icon + '<i>✓</i></div><h2>' + esc(z.name) + ' 깨끗!</h2>' +
     '<div class="stars">' + '★★★★★'.slice(0, stars).split('').map(function () { return '<i>★</i>'; }).join('') + '<span class="dim">' + '★★★★★'.slice(stars) + '</span></div></div>' +
     '<p class="say">' + esc(z.cleared) + '</p>' + aiLine +
-    '<div class="btns"><button class="primary big" data-act="close" data-autofocus>마을 구경하기 👀</button></div>', {
+    '<div class="btns"><button class="primary big" data-act="close" data-autofocus>마을 구경하기 👀</button><button class="ghost" data-act="game">' + G.icon + ' ' + esc(G.title) + ' 놀이</button></div>', {
     cls: 'clear',
     onClose: function () {
       if (world) world.clearZone(zone);
-      updateHUD();
+      updateHUD(); checkUnlocks();
+      if (goGame) { setTimeout(function () { openGame(zone); }, 400); return; }
       if (first && ZONES.every(function (x) { return state.zones[x.id].cleared; }) && !state.finale) setTimeout(openFinale, 2600);
-      else if (first) toast('다음 마을 친구에게 가 볼까요? 위쪽 도장을 누르면 데려다줘요!', 3600);
+      else if (first) toast('다음 마을 친구에게 가 볼까요? 왼쪽 위 "다음 할 일"을 누르면 데려다줘요!', 3600);
     }
   });
   TTS.speak(z.name + ' 깨끗! ' + z.cleared, 'friend');
-  mcard.onclick = function (e) { if (e.target.closest('[data-act="close"]')) closeModal(); };
+  mcard.onclick = function (e) {
+    if (e.target.closest('[data-act="close"]')) closeModal();
+    if (e.target.closest('[data-act="game"]')) { goGame = true; closeModal(); }
+  };
+}
+
+/* 정답 축하 꽃가루 (화면 위에서 톡톡) */
+function confetti(n) {
+  var box = document.createElement('div'); box.className = 'confetti'; document.body.appendChild(box);
+  var C = ['#ff8fab', '#ffd166', '#8fd3ff', '#7fcd6b', '#b8a1ff'];
+  for (var i = 0; i < n; i++) {
+    var p = document.createElement('i');
+    p.style.left = (Math.random() * 100) + '%'; p.style.background = C[i % C.length];
+    p.style.animationDelay = (Math.random() * 0.25) + 's'; p.style.animationDuration = (0.9 + Math.random() * 0.8) + 's';
+    p.style.setProperty('--dx', ((Math.random() - 0.5) * 160) + 'px'); p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    box.appendChild(p);
+  }
+  setTimeout(function () { box.remove(); }, 2000);
+}
+
+/* ------------------------------------------------------------
+   꾸미기 옷장 · 사진 찍기
+   ------------------------------------------------------------ */
+function openWardrobe() {
+  var ts = totalStars(), sc = seedCount();
+  openModal('<div class="who" style="--zc:#f2b93b"><span class="ava">👕</span><div><b>꾸미기 옷장</b><small>⭐ 별 ' + ts + '개 · 🌰 씨앗 ' + sc + '/' + SEED_TOTAL + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<p class="fine">퀴즈와 놀이에서 별을 모으면 새 모자가 열려요. 별 왕관은 반짝 씨앗 12개를 모두 모으면 열려요!</p>' +
+    '<div class="wardrobe">' + HATS.map(function (h) {
+      var open = hatOpen(h), on = state.hat === h.id;
+      var need = h.seeds ? '🌰 씨앗 ' + sc + '/' + h.seeds : '⭐ ' + Math.min(ts, h.need) + '/' + h.need;
+      return '<button class="hat ' + (open ? '' : 'locked ') + (on ? 'on' : '') + '" data-hat="' + h.id + '"' + (open ? '' : ' aria-disabled="true"') + '><span>' + (open ? h.icon : '🔒') + '</span><b>' + esc(h.name) + '</b><small>' + (on ? '쓰고 있어요' : open ? '써 보기' : need) + '</small></button>';
+    }).join('') + '</div>' +
+    '<div class="btns"><button class="ghost" data-act="avatar">🧒 캐릭터 바꾸기</button><button class="primary" data-act="close">다 됐어요</button></div>', { cls: 'menu wear' });
+  mcard.onclick = function (e) {
+    var hb = e.target.closest('[data-hat]');
+    if (hb) {
+      var h = HATS.find(function (x) { return x.id === hb.dataset.hat; });
+      if (!hatOpen(h)) { SFX.wrong(); toast(h.seeds ? '🌰 반짝 씨앗을 모두 모으면 열려요!' : '⭐ 별 ' + h.need + '개를 모으면 열려요! (지금 ' + ts + '개)'); return; }
+      state.hat = h.id; save(); if (world) world.setHat(h.id); SFX.pop(); if (world) world.cheer(); openWardrobe(); return;
+    }
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'close') closeModal();
+    if (a.dataset.act === 'avatar') { state.avatar = (state.avatar + 1) % AVATARS.length; save(); if (world) world.setAvatar(AVATARS[state.avatar]); SFX.pop(); toast('🧒 ' + AVATARS[state.avatar].label + ' 캐릭터!'); }
+  };
+}
+function openPhoto() {
+  if (!world) return;
+  var shot = world.snapshot(); if (!shot) { toast('이 브라우저에서는 사진을 찍을 수 없어요'); return; }
+  SFX.click();
+  var img = new Image();
+  img.onload = function () {
+    var W = 1200, H = Math.round(W * img.height / img.width), pad = 34, foot = 96;
+    var cv = document.createElement('canvas'); cv.width = W + pad * 2; cv.height = H + pad * 2 + foot;
+    var g = cv.getContext('2d');
+    g.fillStyle = '#fffdf6'; g.fillRect(0, 0, cv.width, cv.height);
+    g.drawImage(img, pad, pad, W, H);
+    g.fillStyle = '#2f7d5b'; g.font = '800 40px Jua, "Malgun Gothic", sans-serif'; g.textBaseline = 'middle';
+    g.fillText('🌏 초록별 퀴즈 마을', pad, H + pad + foot / 2);
+    var d = new Date(); g.fillStyle = '#5d7480'; g.font = '600 26px "Malgun Gothic", sans-serif'; g.textAlign = 'right';
+    g.fillText('⭐ ' + totalStars() + '  🌰 ' + seedCount() + '  ·  ' + d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate(), cv.width - pad, H + pad + foot / 2);
+    var url = cv.toDataURL('image/jpeg', 0.9);
+    openModal('<div class="who" style="--zc:#ff8fab"><span class="ava">📸</span><div><b>찰칵! 사진이 찍혔어요</b><small>이 기기에만 저장돼요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+      '<img class="photo" src="' + url + '" alt="초록별 퀴즈 마을 사진">' +
+      '<div class="btns"><a class="primary big btnlike" href="' + url + '" download="초록별퀴즈마을_' + d.getFullYear() + (d.getMonth() + 1) + d.getDate() + '.jpg">사진 저장하기 💾</a><button class="ghost" data-act="close">닫기</button></div>', { cls: 'photo-card' });
+    mcard.onclick = function (e) { if (e.target.closest('[data-act="close"]')) closeModal(); };
+  };
+  img.src = shot;
+  var fl = document.createElement('div'); fl.className = 'flash'; document.body.appendChild(fl); setTimeout(function () { fl.remove(); }, 500);
 }
 
 /* ------------------------------------------------------------
@@ -378,11 +584,14 @@ function openEarth() {
   var line = allDone ? '고마워! 네 덕분에 열이 다 내렸어. 이제 하나도 안 뜨거워! 오늘 배운 걸 집에서도 해 볼래?'
     : left.length === ZONES.length ? '헥헥… 동글이는 온실가스 담요 때문에 너무 더워. 마을 친구들 퀴즈를 풀어서 열을 내려 줄래?'
     : '조금 시원해졌어! 남은 마을은 ' + left.length + '곳이야. 조금만 더 힘내 줘!';
+  var tips = !state.tips; // 처음 온 아이에게만 놀이 방법 안내
+  if (tips) { state.tips = true; save(); }
   openModal('<div class="who" style="--zc:#58b4ea"><span class="ava">🌏</span><div><b>아기 지구 동글이</b><small>초록별 마을 광장</small></div></div>' +
     '<p class="say">' + esc(line) + '</p>' +
+    (tips ? '<ul class="tips"><li><span>👆</span>땅을 누르면 그곳으로 걸어가요 <small>(키보드: 방향키 · 스페이스 점프)</small></li><li><span>💬</span>친구에게 가면 <b>퀴즈</b>와 <b>놀이</b>를 할 수 있어요</li><li><span>🌰</span>섬 곳곳의 <b>반짝 씨앗</b>을 모아 보세요</li><li><span>⭐</span>별을 모으면 <b>👕 꾸미기</b>에서 새 모자가 열려요</li></ul>' : '') +
     (allDone ? '<div class="btns"><button class="primary big" data-act="hw" data-autofocus>오늘의 지구 숙제 받기 📮</button><button class="ghost" data-act="cert">수료증 만들기 🏅</button></div>'
       : '<div class="zone-list">' + ZONES.map(function (z) { var st = state.zones[z.id]; return '<button class="zl ' + (st.cleared ? 'done' : '') + '" data-walk="' + z.id + '" style="--zc:' + z.color + '"><span>' + z.icon + '</span><b>' + esc(z.name) + '</b><small>' + (st.cleared ? '깨끗해요 ✓' : esc(z.friend) + '에게 데려다줘') + '</small></button>'; }).join('') + '</div>') +
-    '<div class="btns"><button class="ghost" data-act="ask">🐻‍❄️ 얼음이에게 묻기</button><button class="ghost" data-act="close">닫기</button></div>', { cls: 'earth' });
+    '<div class="btns"><button class="ghost" data-act="ask">🐻‍❄️ 얼음이에게 묻기</button><button class="' + (tips ? 'primary big' : 'ghost') + '" data-act="close">' + (tips ? '알겠어, 출발! 🚀' : '닫기') + '</button></div>', { cls: 'earth' });
   TTS.speak(line);
   mcard.onclick = function (e) {
     var w = e.target.closest('[data-walk]'); if (w) { var zid = w.dataset.walk; closeModal(); if (world) world.walkTo(zid); return; }
@@ -546,7 +755,7 @@ function openMenu() {
   var presets = window.GreenLLM.PRESETS;
   openModal('<div class="who" style="--zc:#7d93a6"><span class="ava">⚙️</span><div><b>설정</b><small>보호자·선생님용</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="set-sec"><h3>학년</h3><div class="pick" data-k="grade">' + GRADES.map(function (g) { return '<button class="pk ' + (state.grade === g.id ? 'on' : '') + '" data-v="' + g.id + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
-    '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 문제와 대답을 소리 내어 읽어 주기</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
+    '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 문제와 대답을 소리 내어 읽어 주기</label><label class="tg"><input type="checkbox" id="optBgm" ' + (pref('gq.bgm', '1') === '1' ? 'checked' : '') + '> 잔잔한 배경음악</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
     '<div class="set-sec"><h3>AI <small>(모델 비종속 · 연결 방식만 바꾸면 교체)</small></h3>' +
     '<label class="tg"><input type="checkbox" id="aiOn" ' + (c.enabled ? 'checked' : '') + '> AI 기능 쓰기 (끄면 기본 문제은행으로만 진행)</label>' +
     '<p class="fine">지금 상태: <b>' + esc(aiStateText().long) + '</b></p>' +
@@ -571,6 +780,7 @@ function openMenu() {
   $('#aiCross').onchange = function () { var cc = AI.loadCfg(); cc.crossCheck = this.checked; AI.saveCfg(cc); };
   $('#optTTS').onchange = function () { TTS.on = this.checked; setPref('gq.tts', this.checked ? '1' : '0'); };
   $('#optMute').onchange = function () { SFX.setMuted(this.checked); if (this.checked) TTS.stop(); updateSoundBtn(); };
+  $('#optBgm').onchange = function () { setPref('gq.bgm', this.checked ? '1' : '0'); SFX.init(); SFX.bgm(this.checked); };
   mcard.onclick = function (e) {
     var pk = e.target.closest('.pk'); if (pk) { state.grade = +pk.dataset.v; save(); mcard.querySelectorAll('[data-k="grade"] .pk').forEach(function (b) { b.classList.toggle('on', b === pk); }); toast(GRADES[state.grade].label + ' 눈높이로 문제를 낼게요'); return; }
     var a = e.target.closest('[data-act]'); if (!a) return;
@@ -737,9 +947,10 @@ $('#aiPill').addEventListener('click', function () { SFX.init(); onAiButton(); }
 $('#btnAI').addEventListener('click', function () { SFX.init(); onAiButton(); });
 $('#btnStart').addEventListener('click', function () {
   SFX.init(); SFX.click(); TTS.pick();
-  $('#start').hidden = true; $('#hud').hidden = false;
+  $('#start').hidden = true; $('#hud').hidden = false; $('#fabs').hidden = false;
   if (world) world.setAvatar(AVATARS[state.avatar]);
-  updateHUD();
+  if (pref('gq.bgm', '1') === '1') SFX.bgm(true);
+  updateHUD(); checkUnlocks();
   if (!checkHomework()) {
     var anyDone = ZONES.some(function (z) { return state.zones[z.id].cleared; });
     setTimeout(function () { if (modal.hidden) { if (!anyDone) openEarth(); else toast('어서 와! 남은 마을 친구들이 기다리고 있어요'); } }, 700);
@@ -747,7 +958,10 @@ $('#btnStart').addEventListener('click', function () {
   var h = $('#hint'); h.hidden = false; setTimeout(function () { h.hidden = true; }, 9000);
   refreshTalk();
 });
-$('#btnAsk').addEventListener('click', function () { SFX.init(); openChat(); });
+$('#fabBear').addEventListener('click', function () { SFX.init(); SFX.click(); openBear(); });
+$('#fabWear').addEventListener('click', function () { SFX.init(); SFX.click(); openWardrobe(); });
+$('#fabPhoto').addEventListener('click', function () { SFX.init(); openPhoto(); });
+$('#fabJump').addEventListener('click', function () { SFX.init(); if (world) world.jump(); });
 $('#btnMenu').addEventListener('click', function () { SFX.init(); openMenu(); });
 $('#btnSound').addEventListener('click', function () { SFX.init(); SFX.setMuted(!SFX.muted()); if (SFX.muted()) TTS.stop(); updateSoundBtn(); });
 updateSoundBtn();
@@ -763,13 +977,18 @@ function boot() {
     world = window.GQWorld.create($('#c'), {
       onNear: function (t) { nearT = t; refreshTalk(); },
       onTalk: function (t) { if (!modal.hidden || !$('#start').hidden) return; onTalk(t); },
-      onUserGesture: function () { SFX.init(); }
+      onUserGesture: function () { SFX.init(); },
+      onSeed: function (id) { onSeed(id); },
+      onJump: function () { SFX.boing(); }
     });
   } catch (e) {
     var n = $('#nogl'); n.textContent = '이 브라우저에서는 3D 화면을 열 수 없어요. 최신 크롬·엣지·사파리에서 열어 주세요. (' + e.message + ')'; n.hidden = false; return;
   }
   window.__gqWorld = world;
+  world.setHat(state.hat || 'none');
   world.setAvatar(AVATARS[state.avatar]);
+  world.seedsTaken(state.seeds);
+  setInterval(function () { if (QUEST && QUEST.target === 'seed') world.setGuide(world.nextSeed()); }, 1500); // 씨앗 안내는 가장 가까운 씨앗으로 계속 바꿈
   ZONES.forEach(function (z) { var st = state.zones[z.id]; if (st.cleared) world.clearZone(z.id, true); else if (st.partial) world.removeSmog(z.id, st.partial); });
   updateHUD(true);
   if (state.finale) world.celebrate();

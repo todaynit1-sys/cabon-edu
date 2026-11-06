@@ -14,28 +14,41 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/fun.css">
 </head>
 <body>
 <canvas id="c" aria-label="초록별 퀴즈 마을 3D 화면. 친구를 누르면 걸어가서 이야기해요."></canvas>
 <div id="labels" aria-hidden="true"></div>
 
 <header id="hud" hidden>
-  <div class="fever card hot" aria-live="polite">
-    <div class="fever-face" id="feverFace">🥵</div>
-    <div class="fever-body">
-      <div class="fever-title">지구 열 <b id="feverText">아주 뜨거워요</b></div>
-      <div class="fever-bar"><i id="feverBar" style="width:100%"></i></div>
+  <div class="hud-left">
+    <div class="fever card hot" aria-live="polite">
+      <div class="fever-face" id="feverFace">🥵</div>
+      <div class="fever-body">
+        <div class="fever-title">지구 열 <b id="feverText">아주 뜨거워요</b></div>
+        <div class="fever-bar"><i id="feverBar" style="width:100%"></i></div>
+      </div>
     </div>
+    <button class="quest card" id="quest" aria-label="다음 할 일 (누르면 데려다줘요)">
+      <span class="q-ico" id="questIco">🎯</span>
+      <span class="q-txt"><small>다음 할 일</small><b id="questTxt">친구를 찾아가 봐요</b></span>
+      <span class="q-go" id="questGo">데려다줘 ▶</span>
+    </button>
   </div>
-  <nav class="stamps card" id="stamps" aria-label="마을 도장 (누르면 데려다줘요)"></nav>
+  <nav class="stamps card" id="stamps" aria-label="마을 도장과 모은 것 (도장을 누르면 데려다줘요)"></nav>
   <div class="tools">
     <button id="btnAI" class="tool aichip" hidden>✨ AI 켜기</button>
-    <button id="btnAsk" class="tool ask"><span aria-hidden="true">🐻‍❄️</span><b>얼음이에게 묻기</b></button>
     <button id="btnSound" class="tool icon" aria-label="소리 켜기/끄기">🔊</button>
     <button id="btnMenu" class="tool icon" aria-label="설정">⚙️</button>
   </div>
 </header>
-<div id="hint" class="hint" hidden>👆 친구나 땅을 누르면 걸어가요 · ⌨️ 방향키로 걷고 E로 말 걸기</div>
+<div class="fabs" id="fabs" hidden>
+  <button class="fab bear" id="fabBear"><span aria-hidden="true">🐻‍❄️</span><small>얼음이</small></button>
+  <button class="fab wear" id="fabWear"><span aria-hidden="true">👕</span><small>꾸미기</small></button>
+  <button class="fab photo" id="fabPhoto"><span aria-hidden="true">📸</span><small>사진</small></button>
+  <button class="fab jump" id="fabJump"><span aria-hidden="true">⬆️</span><small>점프</small></button>
+</div>
+<div id="hint" class="hint" hidden>👆 땅이나 친구를 누르면 걸어가요 · ⌨️ 방향키로 걷고 스페이스로 점프!</div>
 <button id="btnTalk" class="talk-btn" hidden>💬 <span id="talkLabel">말 걸기</span></button>
 
 <section id="start" class="screen">
@@ -62,6 +75,7 @@
 <script src="js/safety.js"></script>
 <script src="js/kidai.js"></script>
 <script src="js/world.js"></script>
+<script src="js/minigames.js"></script>
 <script src="js/game.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
 <script type="module">
