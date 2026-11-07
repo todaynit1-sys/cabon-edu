@@ -733,6 +733,27 @@ function create(canvas, opts) {
     });
     if (selfBub && !selfBub.hide && T > selfBub.t) selfBub.hide = true;
   }
+  /* ---------------- 멍 때리기 장면: 노을 · 밤하늘 · 비 오는 날 ---------------- */
+  var moodKind = 'day', moodK = 0, moodTarget = 0, MOODS = {
+    sunset: { bg: new THREE.Color('#f2b48e'), hemiC: new THREE.Color('#ffd2a6'), hemi: 0.8, sunC: new THREE.Color('#ff9a5c'), sun: 1.1, cloud: new THREE.Color('#ffd6bf'), ce: 0.25 },
+    night: { bg: new THREE.Color('#18213a'), hemiC: new THREE.Color('#8ea2d8'), hemi: 0.42, sunC: new THREE.Color('#a9b9ff'), sun: 0.3, cloud: new THREE.Color('#4a5478'), ce: 0.02 },
+    rain: { bg: new THREE.Color('#8f9aa5'), hemiC: new THREE.Color('#dfe6ec'), hemi: 0.72, sunC: new THREE.Color('#cfd8e0'), sun: 0.55, cloud: new THREE.Color('#aeb6bf'), ce: 0.12 }
+  }, hemiBase = hemi.color.clone(), sunBase = sun.color.clone(), cloudBase = cloudMat.color.clone(), cloudE = cloudMat.emissiveIntensity;
+  var starGeo = new THREE.BufferGeometry(), starPos = new Float32Array(500 * 3);
+  for (var si = 0; si < 500; si++) { var sa = Math.random() * Math.PI * 2, se = -0.4 + Math.random() * 1.3, sr = 150; starPos[si * 3] = Math.cos(sa) * Math.cos(se) * sr; starPos[si * 3 + 1] = Math.sin(se) * sr; starPos[si * 3 + 2] = Math.sin(sa) * Math.cos(se) * sr; }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  var starMat = new THREE.PointsMaterial({ color: '#ffffff', size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }), stars = new THREE.Points(starGeo, starMat); stars.visible = false; scene.add(stars);
+  var RN = 700, rainGeo = new THREE.BufferGeometry(), rainPos = new Float32Array(RN * 6);
+  for (var ri = 0; ri < RN; ri++) { var rx = (Math.random() - 0.5) * 60, ry = Math.random() * 28, rz = (Math.random() - 0.5) * 60; rainPos.set([rx, ry, rz, rx + 0.08, ry - 0.7, rz], ri * 6); }
+  rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+  var rainMat = new THREE.LineBasicMaterial({ color: '#dfeaf5', transparent: true, opacity: 0, depthWrite: false }), rain = new THREE.LineSegments(rainGeo, rainMat); rain.visible = false; scene.add(rain);
+  function applyMood(dt) {
+    moodK = lerp(moodK, moodTarget, 1 - Math.exp(-1.2 * dt)); if (moodTarget === 0 && moodK < 0.002) { moodK = 0; hemi.color.copy(hemiBase); sun.color.copy(sunBase); cloudMat.color.copy(cloudBase); cloudMat.emissive.set('#ffffff'); cloudMat.emissiveIntensity = cloudE; stars.visible = rain.visible = false; return; }
+    var M = MOODS[moodKind]; if (!M) return;
+    scene.background.lerp(M.bg, moodK); scene.fog.color.copy(scene.background); hemi.color.copy(hemiBase).lerp(M.hemiC, moodK); sun.color.copy(sunBase).lerp(M.sunC, moodK); hemi.intensity = lerp(hemi.intensity, M.hemi, moodK); sun.intensity = lerp(sun.intensity, M.sun, moodK); cloudMat.color.copy(cloudBase).lerp(M.cloud, moodK); cloudMat.emissive.copy(cloudMat.color); cloudMat.emissiveIntensity = lerp(cloudE, M.ce, moodK);
+    stars.visible = moodKind === 'night'; stars.position.copy(camera.position); starMat.opacity = 0.9 * moodK * (0.85 + Math.sin(T * 0.7) * 0.15);
+    rain.visible = moodKind === 'rain'; if (rain.visible) { rainMat.opacity = 0.5 * moodK; rain.position.set(camLook.x, 0, camLook.z); var a = rainGeo.attributes.position.array; for (var i = 0; i < RN; i++) { var o = i * 6; a[o + 1] -= 26 * dt; a[o + 4] -= 26 * dt; if (a[o + 4] < 0) { a[o + 1] += 28; a[o + 4] += 28; } } rainGeo.attributes.position.needsUpdate = true; }
+  }
   /* ---------------- 카메라 ---------------- */
   var camLook = new THREE.Vector3(0, 1, 4), focusPos = null, OFF = new THREE.Vector3(0, 10.5, 13.5);
   var ambient = null, ambA = 0, ambT = 0;
@@ -821,7 +842,7 @@ function create(canvas, opts) {
     curS.forEach(function (s) { if (s.auto || (s.kind === 'bins' && !carryMesh)) return; var d = dist2(player.pos, s.pos); if (d < s.r && d < bestD) { best = s.target; bestD = d; } });
     if (!best) targets.forEach(function (t) { if (t.type === 'mascot') return; var d = dist2(player.pos, t.pos); if (d < t.r && d < bestD) { best = t; bestD = d; } });
     if (best !== near) { near = best; opts.onNear && opts.onNear(near); }
-    clean = lerp(clean, cleanTarget, 1 - Math.exp(-1.6 * dt)); if (Math.abs(clean - cleanTarget) < 0.001) clean = cleanTarget; applyClean(); updatePack(dt);
+    clean = lerp(clean, cleanTarget, 1 - Math.exp(-1.6 * dt)); if (Math.abs(clean - cleanTarget) < 0.001) clean = cleanTarget; applyClean(); if (moodK > 0 || moodTarget > 0) applyMood(dt); updatePack(dt);
     ball.position.y = 2.75 + Math.sin(T * 2) * 0.07 + (celebrateOn ? Math.abs(Math.sin(T * 4)) * 0.25 : 0); lands.rotation.y = Math.sin(T * 0.35) * 0.18;
     sweat.forEach(function (d, i) { if (!d.visible) return; var k = (T * 0.6 + i * 0.5) % 1; d.position.y = d.userData.y0 - k * 0.8; d.scale.setScalar(1 - k * 0.6); d.scale.y *= 1.3; });
     eArms.forEach(function (a, i) { var s = i ? 1 : -1; a.rotation.z = s * (stage >= 3 ? 1.9 + Math.sin(T * 9 + i) * 0.4 : stage === 2 ? 0.7 + Math.sin(T * 2 + i) * 0.1 : 0.35); });
@@ -852,6 +873,7 @@ function create(canvas, opts) {
     walkToPos: function (p, stopR) { if (!p) return; pendingTalk = null; moveTarget = { x: p.x, z: p.z, stopR: stopR || 0.4 }; },
     setClean: function (k, instant) { cleanTarget = clamp(k, 0, 1); if (instant) { clean = cleanTarget; applyClean(); } },
     popSmog: popSmog, removeSmog: removeSmogInstant, clearZone: clearZone, celebrate: celebrate, cheer: cheer,
+    mood: function (kind) { if (kind && MOODS[kind]) { moodKind = kind; moodTarget = 1; } else moodTarget = 0; },
     ambient: function (mode) { ambient = mode || null; ambT = 0; if (mode) { var d = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)); ambA = Math.atan2(d.x, d.z); } },
     setJoy: function (x, y, m) { joy.x = paused ? 0 : x; joy.y = paused ? 0 : y; joy.mag = paused ? 0 : m; },
     tap: function (x, y) { if (!paused) handleTap(x, y); },

@@ -60,6 +60,19 @@ var SFX = (function () {
     boing: function () { tone(220, { f2: 520, dur: 0.18, type: 'sine', vol: 0.1 }); },
     seed: function () { [880, 1175, 1568].forEach(function (f, i) { tone(f, { dur: 0.12, delay: i * 0.06, type: 'triangle', vol: 0.1 }); }); },
     dance: function () { [523, 587, 659, 784, 659, 587, 523, 659, 784, 880, 784, 659].forEach(function (f, i) { tone(f, { dur: 0.18, delay: i * 0.18, type: 'square', vol: 0.05 }); }); },
+    /* 자연 소리: 소리 파일 없이 브라우저에서 만들어요 (빗소리·숲·파도·모닥불) */
+    nature: function (kind) {
+      if (!ctx) return; var N = this._n || (this._n = { nodes: [], timers: [] }); N.nodes.forEach(function (n) { try { n.stop ? n.stop() : 0; } catch (e) {} try { n.disconnect(); } catch (e) {} }); N.timers.forEach(clearInterval); N.nodes = []; N.timers = []; if (!kind || kind === 'none') return;
+      if (!this._buf) { var len = ctx.sampleRate * 2, b = ctx.createBuffer(1, len, ctx.sampleRate), dd = b.getChannelData(0); for (var i = 0; i < len; i++) dd[i] = Math.random() * 2 - 1; this._buf = b; }
+      var buf = this._buf, out = ctx.createGain(); out.gain.value = 0; out.connect(master); out.gain.linearRampToValueAtTime(1, ctx.currentTime + 2.5); N.nodes.push(out);
+      function noise(type, freq, q, vol) { var s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; var f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (q) f.Q.value = q; var g = ctx.createGain(); g.gain.value = vol; s.connect(f).connect(g).connect(out); s.start(); N.nodes.push(s, f, g); return g; }
+      function burst(type, freq, vol, dur) { if (muted || document.hidden) return; var s = ctx.createBufferSource(); s.buffer = buf; var f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; var g = ctx.createGain(), t = ctx.currentTime; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f).connect(g).connect(out); s.start(t, Math.random() * 1.5, dur + 0.05); }
+      function chirp() { if (muted || document.hidden) return; var t = ctx.currentTime, f0 = 2200 + Math.random() * 1600; [0, 0.13, 0.26].slice(0, 1 + Math.floor(Math.random() * 3)).forEach(function (d) { var o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t + d); o.frequency.exponentialRampToValueAtTime(f0 * 1.35, t + d + 0.07); g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.012, t + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.1); o.connect(g).connect(out); o.start(t + d); o.stop(t + d + 0.12); }); }
+      if (kind === 'rain') { noise('lowpass', 5200, 0, 0.11); noise('highpass', 1800, 0, 0.035); N.timers.push(setInterval(function () { if (Math.random() < 0.7) burst('bandpass', 2500 + Math.random() * 2500, 0.05, 0.05); }, 90)); }
+      if (kind === 'forest') { var wind = noise('bandpass', 420, 0.6, 0.06); var up = true; N.timers.push(setInterval(function () { var t = ctx.currentTime; wind.gain.cancelScheduledValues(t); wind.gain.linearRampToValueAtTime(up ? 0.11 : 0.04, t + 4); up = !up; }, 4200)); N.timers.push(setInterval(function () { if (Math.random() < 0.45) chirp(); }, 1400)); }
+      if (kind === 'waves') { var sea = noise('lowpass', 650, 0, 0.02); var hi = true; var swell = function () { var t = ctx.currentTime; sea.gain.cancelScheduledValues(t); sea.gain.setValueAtTime(sea.gain.value, t); sea.gain.linearRampToValueAtTime(hi ? 0.2 : 0.025, t + (hi ? 2.6 : 4.4)); hi = !hi; }; swell(); N.timers.push(setInterval(swell, 3500)); }
+      if (kind === 'fire') { noise('lowpass', 900, 0, 0.07); N.timers.push(setInterval(function () { if (Math.random() < 0.55) burst('highpass', 1800 + Math.random() * 3000, 0.07 + Math.random() * 0.05, 0.03 + Math.random() * 0.04); }, 110)); }
+    },
     bgm: function (v) { if (v === undefined) return bgmOn; bgmOn = !!v; clearInterval(bgmTimer); if (bgmOn) { if (ctx) nextBar = ctx.currentTime + 0.1; bgmTick(); bgmTimer = setInterval(bgmTick, 400); } },
     muted: function () { return muted; },
     setMuted: function (m) { muted = m; setPref('gq.mute', m ? '1' : '0'); if (master) master.gain.value = m ? 0 : 0.5; }
@@ -758,24 +771,31 @@ function saveCard(url) {
 var MUNG = null;
 function openMung() {
   var modes = [['orbit', '🌏', '마을 한 바퀴', '하늘 위에서 초록별 마을을 천천히 돌아봐요'], ['near', '🌳', '광장 산책', '동글이와 친구들 곁을 느릿느릿 돌아요'], ['sky', '☁️', '하늘멍', '누워서 구름과 하늘을 올려다봐요'], ['breathe', '🫧', '숨 고르기', '원을 따라 천천히 들이쉬고 내쉬어요']];
-  var pick = { mode: 'orbit', min: 5 }, total = Math.round((state.mungSec || 0) / 60);
+  var pick = { mode: pref('gq.mungMode', 'orbit'), min: +pref('gq.mungMin', '5'), scene: pref('gq.mungScene', 'sunset'), sound: pref('gq.mungSound', 'forest'), music: pref('gq.mungMusic', '1') === '1' }, total = Math.round((state.mungSec || 0) / 60);
+  var SCENES = [['day', '☀️ 맑은 낮'], ['sunset', '🌇 노을'], ['night', '🌙 밤하늘'], ['rain', '🌧️ 비 오는 날']], SOUNDS = [['none', '🔇 조용히'], ['forest', '🐦 숲속'], ['rain', '🌧️ 빗소리'], ['waves', '🌊 파도'], ['fire', '🔥 모닥불']];
   function render() {
     openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">🌿</span><div><b>멍 때리기</b><small>화면 글자 없이 잔잔한 음악과 마을만 · 화면을 누르면 돌아와요' + (total ? ' · 지금까지 ' + total + '분' : '') + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
       '<div class="mung-modes">' + modes.map(function (m) { return '<button class="mung-mode ' + (pick.mode === m[0] ? 'on' : '') + '" data-m="' + m[0] + '"><span>' + m[1] + '</span><b>' + m[2] + '</b><small>' + m[3] + '</small></button>'; }).join('') + '</div>' +
+      '<div class="set-sec"><h3>장면 <small>눈이 편한 색으로 바뀌어요</small></h3><div class="pick">' + SCENES.map(function (t) { return '<button class="pk ' + (pick.scene === t[0] ? 'on' : '') + '" data-sc="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="set-sec"><h3>소리</h3><div class="pick">' + SOUNDS.map(function (t) { return '<button class="pk ' + (pick.sound === t[0] ? 'on' : '') + '" data-so="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div><label class="tg" style="margin-top:6px"><input type="checkbox" id="mungMusic" ' + (pick.music ? 'checked' : '') + '> 잔잔한 음악도 같이</label></div>' +
       '<div class="set-sec"><h3>얼마나</h3><div class="pick">' + [[3, '3분'], [5, '5분'], [10, '10분'], [0, '계속']].map(function (t) { return '<button class="pk ' + (pick.min === t[0] ? 'on' : '') + '" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div></div>' +
+      ((state.thanks || []).length ? '<div class="thanks-list"><b>💛 지난번 고마웠던 일</b>' + state.thanks.slice(-2).reverse().map(function (t) { return '<p>' + esc(t.m) + '<small>' + esc(t.d) + '</small></p>'; }).join('') + '</div>' : '') +
       '<p class="fine">💡 쉬는 시간이나 수업 시작 전에 켜 두기 좋아요. 가끔 탄소중립 상식이 한 줄씩 지나가요.</p><div class="btns"><button class="primary big" data-act="go" data-autofocus>멍 때리기 시작 🌿</button></div>', { cls: 'menu' });
     mcard.onclick = function (e) {
       var m = e.target.closest('[data-m]'); if (m) { pick.mode = m.dataset.m; SFX.click(); render(); return; }
       var t = e.target.closest('[data-t]'); if (t) { pick.min = +t.dataset.t; SFX.click(); render(); return; }
-      var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'go') { closeModal(); startMung(pick.mode, pick.min); }
+      var sc = e.target.closest('[data-sc]'); if (sc) { pick.scene = sc.dataset.sc; SFX.click(); render(); return; }
+      var so = e.target.closest('[data-so]'); if (so) { pick.sound = so.dataset.so; SFX.init(); SFX.nature(so.dataset.so); clearTimeout(pick._pv); pick._pv = setTimeout(function () { if (!MUNG) SFX.nature('none'); }, 2500); render(); return; }
+      if (e.target.id === 'mungMusic') { pick.music = e.target.checked; return; }
+      var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'go') { setPref('gq.mungMode', pick.mode); setPref('gq.mungMin', String(pick.min)); setPref('gq.mungScene', pick.scene); setPref('gq.mungSound', pick.sound); setPref('gq.mungMusic', pick.music ? '1' : '0'); closeModal(); startMung(pick.mode, pick.min, pick); }
     };
   }
   render();
 }
-function startMung(mode, min) {
-  if (!world) return; SFX.init(); SFX.bgm(true);
+function startMung(mode, min, opt) {
+  opt = opt || {}; if (!world) return; SFX.init(); SFX.bgm(opt.music !== false); SFX.nature(opt.sound || 'none'); world.mood(opt.scene && opt.scene !== 'day' ? opt.scene : null);
   var facts = P.cards.map(function (c) { return TX.sentences(c.text)[0]; }).filter(function (s) { return s && s.length < 70; });
-  var ov = document.createElement('div'); ov.id = 'mung'; ov.className = 'mung' + (mode === 'breathe' ? ' breathe' : '');
+  var ov = document.createElement('div'); ov.id = 'mung'; ov.className = 'mung' + (mode === 'breathe' ? ' breathe' : '') + ' sc-' + (opt.scene || 'day');
   ov.innerHTML = '<div class="mung-top"><span id="mungTime"></span><span>화면을 누르면 돌아가요</span></div>' + (mode === 'breathe' ? '<div class="mung-breath"><i></i><b id="mungBreath">들이쉬기</b></div>' : '') + '<p class="mung-fact" id="mungFact"></p>';
   document.body.appendChild(ov); document.body.classList.add('mung-on');
   world.pause(true); world.ambient(mode === 'breathe' ? 'near' : mode); world.setClean(1);
@@ -791,12 +811,18 @@ function startMung(mode, min) {
   ov.addEventListener('click', function () { stopMung(false); });
   addEventListener('keydown', mungKey);
 }
+function openThanks() { // 쉬고 나서: 오늘 고마웠던 일 한 줄 (이 기기에만 저장)
+  if (!modal.hidden) return;
+  openModal('<div class="who" style="--zc:#f2b93b"><span class="ava">💛</span><div><b>잘 쉬었어요</b><small>쓰고 싶을 때만 · 이 기기에만 저장돼요</small></div></div><p class="say">오늘 고마웠던 일이나 좋았던 일을 한 줄로 남겨 볼까요?</p><label class="lbl">고마웠던 일 한 줄<input id="thanksIn" maxlength="40" placeholder="예: 친구가 같이 나무를 심어 줬어"></label><div class="btns"><button class="primary big" data-act="save" data-autofocus>남기기 💛</button><button class="ghost" data-act="close">괜찮아요</button></div>', { cls: 'menu' });
+  mcard.onclick = function (e) { var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'save') { var v = window.GQSafety.maskPII(($('#thanksIn').value || '').trim()).text.slice(0, 40); if (!v) { closeModal(); return; } state.thanks = (state.thanks || []).concat([{ m: v, d: today() }]).slice(-10); save(); SFX.seed(); closeModal(); toast('💛 마음에 남겼어요. 다음에 멍 때리기를 열면 다시 볼 수 있어요', 3200); } };
+}
 function mungKey(e) { if (MUNG && (e.key === 'Escape' || e.key === ' ')) stopMung(false); }
 function stopMung(done) {
   if (!MUNG) return; var sec = Math.round((Date.now() - MUNG.t0) / 1000); clearInterval(MUNG.timer); try { var l = MUNG.lock(); if (l) l.release(); } catch (e) {} MUNG = null;
   removeEventListener('keydown', mungKey); var ov = $('#mung'); if (ov) ov.remove(); document.body.classList.remove('mung-on');
   state.mungSec = (state.mungSec || 0) + sec; save();
-  if (world) { world.ambient(null); world.pause(false); } updateHUD();
+  if (world) { world.ambient(null); world.pause(false); world.mood(null); } SFX.nature('none'); SFX.bgm(pref('gq.bgm', '1') === '1'); updateHUD();
+  if (sec >= 45) setTimeout(openThanks, 500);
   toast(done ? '🌿 멍 때리기 끝! 잘 쉬었어요 (' + Math.round(sec / 60) + '분)' : '🌿 ' + (sec >= 60 ? Math.round(sec / 60) + '분' : sec + '초') + ' 동안 쉬었어요', 3200);
 }
 /* 묻기: 이야기 카드 검색 (AI가 켜져 있으면 AI 선생님이 카드 안에서 대답) */
