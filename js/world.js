@@ -698,7 +698,15 @@ function create(canvas, opts) {
 
   /* ---------------- 카메라 ---------------- */
   var camLook = new THREE.Vector3(0, 1, 4), focusPos = null, OFF = new THREE.Vector3(0, 10.5, 13.5);
+  var ambient = null, ambA = 0, ambT = 0;
   function updateCamera(dt) {
+    if (ambient) { // 멍 때리기: 천천히 도는 카메라
+      ambT += dt; var portraitA = innerHeight > innerWidth * 1.1, sc = portraitA ? 1.35 : 1, want2, look2;
+      if (ambient === 'orbit') { ambA += dt * 0.045; var rr = 30 * sc; want2 = new THREE.Vector3(Math.sin(ambA) * rr, 15 + Math.sin(ambT * 0.07) * 3, Math.cos(ambA) * rr); look2 = new THREE.Vector3(0, 1.5, 0); }
+      else if (ambient === 'sky') { ambA += dt * 0.02; want2 = new THREE.Vector3(Math.sin(ambA) * 5, 2.2, Math.cos(ambA) * 5 + 4); look2 = new THREE.Vector3(Math.sin(ambA + 2.2) * 40, 22 + Math.sin(ambT * 0.05) * 4, Math.cos(ambA + 2.2) * 40); }
+      else { ambA += dt * 0.025; var r3 = 13 * sc; want2 = new THREE.Vector3(Math.sin(ambA) * r3, 6.5, Math.cos(ambA) * r3); look2 = new THREE.Vector3(0, 2.2, 0); }
+      camLook.lerp(look2, 1 - Math.exp(-0.8 * dt)); camera.position.lerp(want2, 1 - Math.exp(-0.6 * dt)); camera.lookAt(camLook); return;
+    }
     var portrait = innerHeight > innerWidth * 1.1;
     var want = focusPos ? focusPos.clone() : player.pos.clone().add(new THREE.Vector3(0, 1, -1.5));
     camLook.lerp(want, 1 - Math.exp(-4 * dt));
@@ -806,6 +814,7 @@ function create(canvas, opts) {
     walkToPos: function (p, stopR) { if (!p) return; pendingTalk = null; moveTarget = { x: p.x, z: p.z, stopR: stopR || 0.4 }; },
     setClean: function (k, instant) { cleanTarget = clamp(k, 0, 1); if (instant) { clean = cleanTarget; applyClean(); } },
     popSmog: popSmog, removeSmog: removeSmogInstant, clearZone: clearZone, celebrate: celebrate, cheer: cheer,
+    ambient: function (mode) { ambient = mode || null; ambT = 0; if (mode) { var d = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)); ambA = Math.atan2(d.x, d.z); } },
     pause: function (b) { paused = !!b; if (paused) { moveTarget = null; pendingTalk = null; keys = {}; } },
     focus: function (id) { if (!id) { focusPos = null; return; } if (id === 'me') { focusPos = new THREE.Vector3(player.pos.x, -1.7, player.pos.z + 0.4); return; } var t = targets.find(function (x) { return x.id === id; }); focusPos = t ? new THREE.Vector3(t.pos.x * 0.7 + player.pos.x * 0.3, t.type === 'earth' ? 0.2 : -1.0, t.pos.z * 0.7 + player.pos.z * 0.3 + 1.6) : null; },
     near: function () { return near; },

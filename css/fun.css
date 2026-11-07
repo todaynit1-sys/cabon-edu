@@ -353,3 +353,22 @@ table.diary td.num.good { color: #2f7d5b; }
 .card-prev { margin: 8px 0; text-align: center; }
 .card-prev img { width: 100%; max-width: 420px; border-radius: 16px; box-shadow: var(--shadow); }
 .card-btn { margin-top: 8px; width: 100%; }
+
+/* 🌿 멍 때리기 */
+.fab.rest { background: #e9f7ef; }
+body.mung-on #hud, body.mung-on #fabs, body.mung-on #labels, body.mung-on #say, body.mung-on #effect, body.mung-on #btnTalk, body.mung-on #hint, body.mung-on #toast { display: none !important; }
+.mung { position: fixed; inset: 0; z-index: 25; cursor: pointer; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 55%, rgba(20,40,50,.18)); }
+.mung-top { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left)); color: rgba(255,255,255,.88); font-size: 14px; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.mung-top span:first-child { font-family: var(--cute); font-size: 18px; font-variant-numeric: tabular-nums; }
+.mung-fact { position: absolute; left: 50%; bottom: calc(34px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(620px, calc(100% - 32px)); margin: 0; text-align: center; color: #fff; font-size: 17px; line-height: 1.5; text-shadow: 0 1px 6px rgba(0,0,0,.45); opacity: 0; }
+.mung-fact.show { animation: mungfact 14s ease-in-out forwards; }
+@keyframes mungfact { 0% { opacity: 0; transform: translate(-50%, 8px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.mung-breath { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 220px; height: 220px; display: grid; place-items: center; }
+.mung-breath i { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(143,211,255,.25) 60%, rgba(143,211,255,0) 72%); animation: breathe 10s ease-in-out infinite; }
+.mung-breath b { position: relative; font-family: var(--cute); font-weight: 400; font-size: 24px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+@keyframes breathe { 0% { transform: scale(.55); } 40% { transform: scale(1); } 60% { transform: scale(1); } 100% { transform: scale(.55); } }
+.mung-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.mung-mode { border: 3px solid var(--line); background: #fff; border-radius: 18px; padding: 10px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.mung-mode span { font-size: 26px; } .mung-mode b { font-family: var(--cute); font-weight: 400; font-size: 18px; } .mung-mode small { font-size: 12px; color: var(--muted); }
+.mung-mode.on { border-color: var(--green); background: #effae9; box-shadow: 0 3px 0 var(--green); }
+@media (prefers-reduced-motion: reduce) { .mung-breath i { animation-duration: 14s; } }

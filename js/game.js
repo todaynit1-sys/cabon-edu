@@ -751,6 +751,53 @@ function saveCard(url) {
   } else viaLink();
 }
 
+/* ------------------------------------------------------------
+   🌿 멍 때리기 — 화면 글자는 숨기고 카메라가 천천히 마을을 돌아요. 화면을 누르면 돌아와요
+   ------------------------------------------------------------ */
+var MUNG = null;
+function openMung() {
+  var modes = [['orbit', '🌏', '마을 한 바퀴', '하늘 위에서 초록별 마을을 천천히 돌아봐요'], ['near', '🌳', '광장 산책', '동글이와 친구들 곁을 느릿느릿 돌아요'], ['sky', '☁️', '하늘멍', '누워서 구름과 하늘을 올려다봐요'], ['breathe', '🫧', '숨 고르기', '원을 따라 천천히 들이쉬고 내쉬어요']];
+  var pick = { mode: 'orbit', min: 5 }, total = Math.round((state.mungSec || 0) / 60);
+  function render() {
+    openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">🌿</span><div><b>멍 때리기</b><small>화면 글자 없이 잔잔한 음악과 마을만 · 화면을 누르면 돌아와요' + (total ? ' · 지금까지 ' + total + '분' : '') + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+      '<div class="mung-modes">' + modes.map(function (m) { return '<button class="mung-mode ' + (pick.mode === m[0] ? 'on' : '') + '" data-m="' + m[0] + '"><span>' + m[1] + '</span><b>' + m[2] + '</b><small>' + m[3] + '</small></button>'; }).join('') + '</div>' +
+      '<div class="set-sec"><h3>얼마나</h3><div class="pick">' + [[3, '3분'], [5, '5분'], [10, '10분'], [0, '계속']].map(function (t) { return '<button class="pk ' + (pick.min === t[0] ? 'on' : '') + '" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div></div>' +
+      '<p class="fine">💡 쉬는 시간이나 수업 시작 전에 켜 두기 좋아요. 가끔 탄소중립 상식이 한 줄씩 지나가요.</p><div class="btns"><button class="primary big" data-act="go" data-autofocus>멍 때리기 시작 🌿</button></div>', { cls: 'menu' });
+    mcard.onclick = function (e) {
+      var m = e.target.closest('[data-m]'); if (m) { pick.mode = m.dataset.m; SFX.click(); render(); return; }
+      var t = e.target.closest('[data-t]'); if (t) { pick.min = +t.dataset.t; SFX.click(); render(); return; }
+      var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'go') { closeModal(); startMung(pick.mode, pick.min); }
+    };
+  }
+  render();
+}
+function startMung(mode, min) {
+  if (!world) return; SFX.init(); SFX.bgm(true);
+  var facts = P.cards.map(function (c) { return TX.sentences(c.text)[0]; }).filter(function (s) { return s && s.length < 70; });
+  var ov = document.createElement('div'); ov.id = 'mung'; ov.className = 'mung' + (mode === 'breathe' ? ' breathe' : '');
+  ov.innerHTML = '<div class="mung-top"><span id="mungTime"></span><span>화면을 누르면 돌아가요</span></div>' + (mode === 'breathe' ? '<div class="mung-breath"><i></i><b id="mungBreath">들이쉬기</b></div>' : '') + '<p class="mung-fact" id="mungFact"></p>';
+  document.body.appendChild(ov); document.body.classList.add('mung-on');
+  world.pause(true); world.ambient(mode === 'breathe' ? 'near' : mode); world.setClean(1);
+  var lock = null; try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { lock = l; }, function () {}); } catch (e) {}
+  var t0 = Date.now(), end = min ? t0 + min * 60000 : 0, fi = Math.floor(Math.random() * facts.length), lastFact = 0;
+  function tick() {
+    var now = Date.now(), el = $('#mungTime'); if (!el) return;
+    if (end) { var left = Math.max(0, Math.round((end - now) / 1000)); el.textContent = '🌿 ' + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2); if (!left) { stopMung(true); return; } } else { var up = Math.round((now - t0) / 1000); el.textContent = '🌿 ' + Math.floor(up / 60) + '분 ' + (up % 60) + '초'; }
+    if (mode === 'breathe') { var ph = ((now - t0) / 1000) % 10, b = $('#mungBreath'); if (b) b.textContent = ph < 4 ? '들이쉬기' : ph < 6 ? '잠깐 멈추기' : '내쉬기'; }
+    if (facts.length && now - lastFact > 45000) { lastFact = now; var f = $('#mungFact'); if (f) { f.classList.remove('show'); void f.offsetWidth; f.textContent = '🌱 ' + facts[fi++ % facts.length]; f.classList.add('show'); } }
+  }
+  MUNG = { t0: t0, timer: setInterval(tick, 500), lock: function () { return lock; } }; lastFact = Date.now() - 37000; tick();
+  ov.addEventListener('click', function () { stopMung(false); });
+  addEventListener('keydown', mungKey);
+}
+function mungKey(e) { if (MUNG && (e.key === 'Escape' || e.key === ' ')) stopMung(false); }
+function stopMung(done) {
+  if (!MUNG) return; var sec = Math.round((Date.now() - MUNG.t0) / 1000); clearInterval(MUNG.timer); try { var l = MUNG.lock(); if (l) l.release(); } catch (e) {} MUNG = null;
+  removeEventListener('keydown', mungKey); var ov = $('#mung'); if (ov) ov.remove(); document.body.classList.remove('mung-on');
+  state.mungSec = (state.mungSec || 0) + sec; save();
+  if (world) { world.ambient(null); world.pause(false); } updateHUD();
+  toast(done ? '🌿 멍 때리기 끝! 잘 쉬었어요 (' + Math.round(sec / 60) + '분)' : '🌿 ' + (sec >= 60 ? Math.round(sec / 60) + '분' : sec + '초') + ' 동안 쉬었어요', 3200);
+}
 /* 묻기: 이야기 카드 검색 (AI가 켜져 있으면 AI 선생님이 카드 안에서 대답) */
 var chat = [];
 function chatHTML() {
@@ -1153,6 +1200,7 @@ $('#btnStart').addEventListener('click', function () {
   var h = $('#hint'); h.hidden = false; setTimeout(function () { h.hidden = true; }, 9000); refreshTalk();
 });
 $('#fabLearn').addEventListener('click', function () { SFX.init(); SFX.click(); openLearnHub(); });
+$('#fabMung').addEventListener('click', function () { SFX.init(); SFX.click(); openMung(); });
 $('#fabCalc').addEventListener('click', function () { SFX.init(); SFX.click(); if (P.calc) openCalc(); else openLearnHub(); });
 $('#fabBear').addEventListener('click', function () { SFX.init(); SFX.click(); openBear(); });
 $('#fabWear').addEventListener('click', function () { SFX.init(); SFX.click(); openWardrobe(); });
