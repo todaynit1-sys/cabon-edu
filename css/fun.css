@@ -494,3 +494,13 @@ body.chatting #btnTalk, body.chatting #joyZone { visibility: hidden; }
   .chatbar { grid-template-columns: minmax(0, 1fr) auto auto; } .chatbar #chatWave { display: none; }
   .grpcard { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); }
 }
+
+/* PC: 채팅창을 화면 아래 왼쪽에 항상 (한 화면에서 같이 보기) */
+.chatbar.dock { left: max(12px, env(safe-area-inset-left)); transform: none; width: min(380px, calc(100% - 520px)); min-width: 260px; bottom: calc(12px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0, 1fr) auto auto; background: rgba(255, 253, 246, .9); padding: 6px; z-index: 7; }
+.chatbar.dock small, .chatbar.dock #chatClose { display: none; }
+.chatbar.dock input { padding: 8px 10px; font-size: 14px; }
+.chatbar.dock button { padding: 8px 10px; font-size: 14px; }
+.chatbar.dock.focus { background: rgba(255, 253, 246, .99); box-shadow: 0 0 0 3px var(--green), var(--shadow); }
+body.mp-dock .chatlog { bottom: calc(70px + env(safe-area-inset-bottom)); }
+body.mp-dock .saybubble { bottom: calc(210px + env(safe-area-inset-bottom)); }
+body.mp-dock.chatting #btnTalk { visibility: visible; }

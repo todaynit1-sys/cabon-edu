@@ -1075,26 +1075,33 @@ function softMsg(s) { s = String(s || '').replace(/[\u0000-\u001f\u007f]/g, ' ')
 function safeNick(s) { var n = String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 10); return !n || isRude(n) || PRIV_RE.test(n) ? '친구' : n; }
 var MP = { on: false, peers: {}, seenChat: {}, seenEmo: {}, nick: '', room: '', unread: 0, chatOpen: false, lastChat: 0, follow: '', followers: [], tick: 0 };
 function mpStatusText() { var n = Object.keys(MP.peers).length; return MP.on ? (GQNet.status() === 'on' ? '👥 ' + (MP.room || '우리반') + ' · ' + (n + 1) + '명' : '👥 연결 중…') : ''; }
+var NICK_A = ['초록', '하늘', '햇살', '바람', '새싹', '구름', '별빛', '푸른'], NICK_B = ['곰', '토끼', '다람쥐', '강아지', '고양이', '펭귄', '여우', '부엉이'];
+function randomNick() { return NICK_A[Math.floor(Math.random() * NICK_A.length)] + NICK_B[Math.floor(Math.random() * NICK_B.length)] + (10 + Math.floor(Math.random() * 90)); }
+function autoMp() { if (MP.on || pref('gq.mp', '1') === '0' || !window.GQNet) return; var n = pref('gq.nick', '') || randomNick(); setPref('gq.nick', n); mpStart(n, pref('gq.room', '모두') || '모두'); }
 function openMp() {
-  var nick = MP.nick || pref('gq.nick', '') || state.name || '', room = MP.room || pref('gq.room', '우리반');
-  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">👥</span><div><b>친구들과 같이 하기</b><small>같은 방 이름을 쓴 친구들이 마을에 함께 보여요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
-    (MP.on ? '<p class="say">지금 <b>' + esc(MP.room) + '</b> 방에 있어요. 친구 ' + Object.keys(MP.peers).length + '명이 함께해요.</p><ul class="tips"><li><span>⌨️</span><b>Enter</b>를 누르거나 위쪽 💬를 누르면 채팅해요</li><li><span>👆</span>친구 <b>이름표</b>를 누르면 손 흔들기·하트·<b>같이 다니기</b></li></ul><div class="btns"><button class="ghost danger" data-act="off">같이 하기 끄기</button><button class="primary" data-act="close">계속하기</button></div>'
+  var nick = MP.nick || pref('gq.nick', '') || randomNick(), room = MP.room || pref('gq.room', '모두');
+  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">👥</span><div><b>친구들과 같이 하기 · 채팅</b><small>같은 방 이름을 쓴 친구들이 마을에 함께 보이고 채팅할 수 있어요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    (MP.on ? '<p class="say">지금 <b>' + esc(MP.room) + '</b> 방에서 <b>' + esc(MP.nick) + '</b>(으)로 함께하고 있어요. 친구 ' + Object.keys(MP.peers).length + '명이 같이 보여요.</p><ul class="tips"><li><span>⌨️</span><b>Enter</b>를 누르거나 💬를 누르면 채팅해요</li><li><span>👆</span>친구 <b>이름표</b>를 누르면 손 흔들기·하트·<b>같이 다니기</b></li><li><span>🏫</span>우리 반끼리만 보려면 아래에서 <b>방 이름</b>을 바꿔요</li></ul>' +
+      '<label class="lbl">내 별명<input id="mpNick" maxlength="10" value="' + esc(MP.nick) + '"></label><label class="lbl">방 이름 (같은 이름끼리 만나요 · 기본은 모두)<input id="mpRoom" maxlength="20" value="' + esc(MP.room) + '"></label><div class="btns"><button class="ghost danger" data-act="off">혼자 하기</button><button class="primary" data-act="re">바꾸기</button></div>'
       : '<label class="lbl">내 별명 (실명 말고 별명으로)<input id="mpNick" maxlength="10" value="' + esc(nick) + '" placeholder="예: 초록곰"></label><label class="lbl">방 이름 (선생님이 알려 준 이름 · 같은 이름끼리 만나요)<input id="mpRoom" maxlength="20" value="' + esc(room) + '" placeholder="예: 3학년2반"></label>' +
-        '<p class="fine">🔒 위치·캐릭터·별명·채팅만 같은 방 친구에게 전해지고 저장하지 않아요. 욕설과 전화번호·이메일은 걸러요. ' + (window.claude && window.claude.use ? '(claude.ai에서 이 링크를 연 사람끼리)' : '(공개 중계 서버를 거쳐 전달 · 시연용)') + '</p><div class="btns"><button class="primary big" data-act="go" data-autofocus>같이 하기 시작 👥</button></div>'), { cls: 'menu' });
+        '<p class="fine">🔒 위치·캐릭터·별명·채팅만 같은 방 친구에게 전해지고 저장하지 않아요. 욕설과 전화번호·이메일은 걸러요. ' + (window.claude && window.claude.use ? '(claude.ai에서 이 링크를 연 사람끼리)' : '(공개 중계 서버를 거쳐 전달 · 시연용)') + '</p><div class="btns"><button class="primary big" data-act="go" data-autofocus>들어가서 채팅하기 💬</button></div>'), { cls: 'menu' });
   mcard.onclick = function (e) {
     var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
     if (act === 'close') closeModal();
-    if (act === 'off') { mpStop(); closeModal(); toast('👥 같이 하기를 껐어요'); }
-    if (act === 'go') { var n = safeNick($('#mpNick').value), r = String($('#mpRoom').value || '우리반').replace(/[^\w가-힣-]/g, '').slice(0, 20) || '우리반'; setPref('gq.nick', n); setPref('gq.room', r); closeModal(); mpStart(n, r); }
+    if (act === 'off') { setPref('gq.mp', '0'); mpStop(); closeModal(); toast('👥 혼자 하기로 바꿨어요 · 👥 버튼으로 다시 함께할 수 있어요'); }
+    if (act === 're') { var n2 = safeNick($('#mpNick').value), r2 = String($('#mpRoom').value || '모두').replace(/[^\w가-힣-]/g, '').slice(0, 20) || '모두'; setPref('gq.nick', n2); setPref('gq.room', r2); closeModal(); if (r2 !== MP.room) { mpStop(); mpStart(n2, r2); } else { MP.nick = n2; mpSend(true); toast('별명을 ' + n2 + '(으)로 바꿨어요'); } }
+    if (act === 'go') { setPref('gq.mp', '1'); var n = safeNick($('#mpNick').value), r = String($('#mpRoom').value || '모두').replace(/[^\w가-힣-]/g, '').slice(0, 20) || '우리반'; setPref('gq.nick', n); setPref('gq.room', r); closeModal(); mpStart(n, r); }
   };
 }
 function mpStart(nick, room) {
-  if (!window.GQNet || MP.on) return; MP.on = true; MP.nick = nick; MP.room = room; MP.peers = {}; $('#btnChat').hidden = false;
+  if (!window.GQNet || MP.on) return; MP.on = true; MP.nick = nick; MP.room = room; MP.peers = {};
   GQNet.start({ room: room, pack: P.id, onStatus: function () { mpHud(); }, onPeers: mpPeers });
   mpSend(true); clearInterval(MP.tick); MP.tick = setInterval(function () { mpSend(false); mpFollowTick(); }, 200);
-  sysChat('👥 ' + room + ' 방에 들어왔어요. Enter로 채팅, 친구 이름표를 누르면 같이 다녀요.'); mpHud();
+  sysChat('👥 ' + nick + '(으)로 ' + (room === '모두' ? '다 같이' : room + ' 방에') + ' 들어왔어요 · Enter로 채팅 · 친구 이름표를 누르면 같이 다녀요'); mpHud();
+  if (!IS_TOUCH) { $('#chatBar').hidden = false; $('#chatBar').classList.add('dock'); document.body.classList.add('mp-dock'); }
+  if (MP.chatAfter) { MP.chatAfter = false; setTimeout(openChatBar, 300); }
 }
-function mpStop() { if (!MP.on) return; MP.on = false; clearInterval(MP.tick); GQNet.stop(); Object.keys(MP.peers).forEach(function (id) { if (world) world.peerRemove(id); }); MP.peers = {}; MP.follow = ''; $('#btnChat').hidden = true; closeChat(); renderGrp(); mpHud(); }
+function mpStop() { if (!MP.on) return; $('#chatBar').classList.remove('dock'); document.body.classList.remove('mp-dock'); MP.on = false; clearInterval(MP.tick); GQNet.stop(); Object.keys(MP.peers).forEach(function (id) { if (world) world.peerRemove(id); }); MP.peers = {}; MP.follow = ''; closeChat(); renderGrp(); mpHud(); }
 function mpSend(force) { if (!MP.on || !world) return; var p = world.pos(); GQNet.update({ n: MP.nick, x: +p.x.toFixed(2), z: +p.z.toFixed(2), h: +world.heading().toFixed(2), l: state.look, f: MP.follow || '' }); }
 function mpHud() { var el = $('#feverSub'); if (!el) return; if (MP.on) el.textContent = mpStatusText(); else updateHUD(); }
 function mpPeers(map) {
@@ -1135,8 +1142,8 @@ function openPeer(id) {
 }
 /* 채팅 */
 function badge() { var b = $('#btnChat .badge'); b.hidden = MP.unread === 0; b.textContent = MP.unread > 9 ? '9+' : String(MP.unread); }
-function openChatBar() { if (!MP.on || !modal.hidden || !$('#start').hidden) return; MP.chatOpen = true; $('#chatBar').hidden = false; document.body.classList.add('chatting'); MP.unread = 0; badge(); setTimeout(function () { $('#chatIn').focus({ preventScroll: true }); }, 0); }
-function closeChat() { MP.chatOpen = false; $('#chatBar').hidden = true; document.body.classList.remove('chatting'); $('#chatIn').blur(); }
+function openChatBar() { if (!MP.on || !modal.hidden || !$('#start').hidden) return; MP.chatOpen = true; $('#chatBar').hidden = false; $('#chatBar').classList.add('focus'); document.body.classList.add('chatting'); MP.unread = 0; badge(); setTimeout(function () { $('#chatIn').focus({ preventScroll: true }); }, 0); }
+function closeChat() { MP.chatOpen = false; $('#chatBar').classList.remove('focus'); $('#chatBar').hidden = !$('#chatBar').classList.contains('dock'); document.body.classList.remove('chatting'); $('#chatIn').blur(); }
 function addChatLog(name, msg, sys) { var log = $('#chatLogMp'), d = document.createElement('div'); if (sys) { d.className = 'sys'; d.textContent = msg; } else { var b = document.createElement('b'); b.textContent = name; d.append(b, document.createTextNode(' ' + msg)); } log.appendChild(d); while (log.children.length > 5) log.firstChild.remove(); setTimeout(function () { d.classList.add('fade'); }, 9000); setTimeout(function () { d.remove(); }, 9700); }
 function sysChat(msg) { addChatLog('', msg, true); }
 function sendMpChat(text) {
@@ -1147,13 +1154,15 @@ function sendMpChat(text) {
   MP.lastChat = Date.now(); GQNet.update({ c: { t: MP.lastChat, m: msg } }); if (world) world.selfSay(msg); addChatLog(MP.nick || '나', msg); SFX.click(); return true;
 }
 $('#chatBar').addEventListener('submit', function (e) { e.preventDefault(); if (sendMpChat($('#chatIn').value)) { $('#chatIn').value = ''; if (!IS_TOUCH) closeChat(); } });
+$('#chatIn').addEventListener('focus', function () { MP.chatOpen = true; MP.unread = 0; badge(); $('#chatBar').classList.add('focus'); });
+$('#chatIn').addEventListener('blur', function () { if ($('#chatBar').classList.contains('dock')) { MP.chatOpen = false; $('#chatBar').classList.remove('focus'); } });
 $('#chatClose').addEventListener('click', closeChat);
 $('#chatWave').addEventListener('click', function () { if (world) world.wave(); GQNet.update({ e: { t: Date.now(), k: 'wave', to: '' } }); });
-$('#btnChat').addEventListener('click', function () { if (MP.chatOpen) closeChat(); else openChatBar(); });
+$('#btnChat').addEventListener('click', function () { SFX.init(); if (!MP.on) { MP.chatAfter = true; openMp(); return; } if (MP.chatOpen) closeChat(); else openChatBar(); });
 $('#fabMp').addEventListener('click', function () { SFX.init(); SFX.click(); openMp(); });
 addEventListener('keydown', function (e) {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) { if (e.key === 'Escape' && e.target.id === 'chatIn') closeChat(); return; }
-  if (e.key === 'Enter' && MP.on && modal.hidden && $('#start').hidden) { e.preventDefault(); openChatBar(); }
+  if (e.key === 'Enter' && modal.hidden && $('#start').hidden) { e.preventDefault(); if (MP.on) openChatBar(); else { MP.chatAfter = true; openMp(); } }
 });
 function updateSoundBtn() { $('#btnSound').textContent = SFX.muted() ? '🔇' : '🔊'; }
 
@@ -1315,6 +1324,7 @@ $('#btnStart').addEventListener('click', function () {
   updateHUD(); checkUnlocks();
   if (!checkHomework()) { var anyDone = ZONES.some(function (z) { return state.zones[z.id].cleared; }); setTimeout(function () { if (modal.hidden) { if (!anyDone && !state.tips) openEarth(); else toast('어서 와! 친구들이 기다리고 있어요'); } }, 700); }
   var h = $('#hint'); h.hidden = false; setTimeout(function () { h.hidden = true; }, 9000); refreshTalk();
+  setTimeout(autoMp, 900);
 });
 $('#fabLearn').addEventListener('click', function () { SFX.init(); SFX.click(); openLearnHub(); });
 $('#fabMung').addEventListener('click', function () { SFX.init(); SFX.click(); openMung(); });
