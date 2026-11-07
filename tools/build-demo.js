@@ -35,7 +35,7 @@ scripts.forEach((src) => {
   else js += '<script>/* ' + src + ' */\n' + safeJs(read(src)) + '\n</script>\n';
 });
 
-const out = '<title>AI 체험관 메이커</title>\n<meta name="description" content="교육자료를 넣으면 AI가 학생용 3D 체험관을 만들고, 담당자가 검토·승인해 발행하는 도구">\n<style>\n' + css + '\n</style>\n' + markup.trim() + '\n' + js;
+const out = '<title>AI 체험 마을 메이커</title>\n<meta name="description" content="교육자료를 넣으면 AI가 학생용 3D 체험관을 만들고, 담당자가 검토·승인해 발행하는 도구">\n<style>\n' + css + '\n</style>\n' + markup.trim() + '\n' + js;
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, out);
 console.log('wrote', OUT, (out.length / 1024).toFixed(0) + 'KB', 'scripts:', scripts.length);

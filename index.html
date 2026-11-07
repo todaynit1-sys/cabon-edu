@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>초록별 마을 — 체험관</title>
-<meta name="description" content="AI 체험관 메이커로 만든 초등~고등 학생용 3D 체험관. 마을 친구들과 직접 체험하며 배워요.">
+<title>AI 탄소중립 체험실</title>
+<meta name="description" content="AI 탄소중립 체험실 — 3D 마을에서 직접 체험하고, AI 선생님·AI 탄소 코치와 내 탄소를 재고 줄이는 초등~고등 학생용 환경교육">
 <meta name="theme-color" content="#7fcd6b">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -41,7 +41,8 @@
   </div>
 </header>
 <div class="fabs" id="fabs" hidden>
-  <button class="fab ai" id="fabLearn"><span aria-hidden="true">📚</span><small>배움터</small></button>
+  <button class="fab calc" id="fabCalc"><span aria-hidden="true">🧮</span><small>탄소 재기</small></button>
+  <button class="fab ai" id="fabLearn"><span aria-hidden="true">📚</span><small>AI 배움터</small></button>
   <button class="fab bear" id="fabBear"><span aria-hidden="true">🐻‍❄️</span><small id="fabBearName">얼음이</small></button>
   <button class="fab wear" id="fabWear"><span aria-hidden="true">👕</span><small>꾸미기</small></button>
   <button class="fab photo" id="fabPhoto"><span aria-hidden="true">📸</span><small>사진</small></button>
@@ -55,6 +56,7 @@
 <section id="start" class="screen">
   <div class="start-card">
     <div class="logo" aria-hidden="true"><span class="globe">🌏</span><span class="pack">🧊</span></div>
+    <p class="brand-line">✨ AI 탄소중립 체험실</p>
     <h1 id="stTitle">체험관</h1>
     <p class="sub" id="stSub"></p>
     <p class="lead" id="stLead"></p>
@@ -74,6 +76,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="js/text.js"></script>
 <script src="js/safety.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/pack.js"></script>
 <script src="packs/green.js"></script>
 <script src="js/world.js"></script>

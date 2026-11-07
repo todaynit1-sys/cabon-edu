@@ -374,7 +374,24 @@ function answer(raw) {
     fb.className = 'fb oops'; fb.innerHTML = '<b class="big">앗, 아쉬워! 괜찮아 😊</b><div class="bear-say"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p>' + esc(w.text) + '</p>' + (w.ai ? '<small class="aimark">✨ 이 설명은 메이커에서 AI가 네가 고른 답에 맞춰 미리 써 두고, 담당자가 확인한 거예요</small>' : '') + '</div></div>' +
       '<div class="btns">' + (canRetry ? '<button class="primary big" data-act="retry" data-autofocus>비슷한 문제 한 번 더! 🔁</button>' : '') + '<button class="' + (canRetry ? 'ghost' : 'primary big') + '" data-act="next">' + (isLast() ? '결과 보기 ⭐' : '다음 문제 ▶') + '</button></div>';
     TTS.speak(w.text, 'bear'); fb.querySelector('button').focus();
+    if (!w.ai) aiReexplain(it, chosen, fb);
   }
+}
+function lvInfo() { return PK.LEVELS.find(function (l) { return l.id === level(); }) || PK.LEVELS[0]; }
+function aiReexplain(it, chosen, fb) {
+  if (!window.GQAI || !GQAI.ready()) return;
+  var card = CARD[it.ev]; if (!card) return; var p = fb.querySelector('.bear-say p'); if (!p) return;
+  var cur = Q && Q.cur, L = lvInfo();
+  var pick = it.type === 'ox' ? chosen : it.options[chosen], right = it.type === 'ox' ? it.answer : it.options[it.answer];
+  var note = document.createElement('small'); note.className = 'aimark'; note.textContent = '✨ AI 선생님이 네 답에 맞춰 다시 설명하는 중…'; p.parentNode.appendChild(note);
+  GQAI.chat([{ role: 'system', content: '너는 환경교육 마스코트 "' + P.mascot.name + '"야. 대상: ' + L.label + ' (' + L.desc + ')\n학생이 문제를 틀렸어. 학생이 고른 답을 먼저 이해해 주고("그렇게 생각할 수도 있어"), [근거 카드] 내용만으로 왜 정답이 맞는지 2~3문장으로 쉽게 다시 설명해. 카드에 없는 사실·숫자 금지, 겁주는 말 금지, 이모지·인사 금지.' },
+    { role: 'user', content: '문제: ' + it.q + (it.type === 'choice' ? '\n보기: ' + it.options.join(' / ') : '') + '\n학생이 고른 답: ' + pick + '\n정답: ' + right + '\n[근거 카드] ' + card.title + ': ' + card.text }], { maxTokens: 300 })
+    .then(function (t) {
+      if (!Q || Q.cur !== cur) return;
+      var v = GQAI.verify(t, { maxLen: 260, ground: card.text, numbers: card.text + ' ' + it.q + ' ' + (it.options || []).join(' ') });
+      if (!v.ok) { note.textContent = '📗 기본 설명을 보여 줘요 (AI 설명이 검증에서 걸러짐: ' + v.why + ')'; return; }
+      p.textContent = v.text; note.textContent = '✨ AI 선생님이 네가 고른 답에 맞춰 다시 설명했어요 · 근거: ' + card.title; TTS.speak(v.text, 'bear');
+    }, function () { note.textContent = '📗 기본 설명을 보여 줘요'; });
 }
 function isLast() { return Q.i >= Q.items.length - 1; }
 function retry() { var it = Q.cur, avoid = {}; Q.items.forEach(function (x) { avoid[x.id] = 1; }); var same = BANK.filter(function (b) { return b.zone === Q.zone && b.ev === it.ev && !avoid[b.id]; }); if (!same.length) { next(); return; } renderQ(Object.assign({}, same[Math.floor(Math.random() * same.length)], { retry: true })); }
@@ -398,11 +415,14 @@ function finishQuiz() {
 function hasAiLessons() { var lv = level(); return Object.keys(P.lessons).some(function (k) { return P.lessons[k][lv] || P.lessons[k][String(lv)]; }); }
 function openLearnHub() {
   var madeBy = P.meta.model ? '✨ 이 체험관의 수업·문제는 메이커에서 AI(' + esc(P.meta.model) + ')가 만들고 ' + esc(P.org || '담당자') + '가 승인했어요' : '📗 이 체험관의 수업·문제는 담당자가 검수한 자료예요 · 메이커로 다른 주제도 만들 수 있어요';
-  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">📚</span><div><b>배움터</b><small>' + madeBy + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
-    '<div class="lab"><button class="pick-big lab-learn" data-act="learn"><span>📖</span><b>배우기</b><small>주제를 고르면 ' + esc(GRADES[state.grade].label) + ' 눈높이 짧은 수업 + 확인 문제</small></button>' +
-    '<button class="pick-big lab-quiz" data-act="quiz"><span>📝</span><b>문제 풀기</b><small>마을을 고르면 문제를 내고, 틀리면 다시 설명해 줘요</small></button>' +
-    '<button class="pick-big lab-ask" data-act="ask"><span>💬</span><b>' + esc(P.mascot.name) + '에게 묻기</b><small>이야기 카드에서 찾아서 대답해요</small></button></div>', { cls: 'menu lab-card' });
+  var aiOn = window.GQAI && GQAI.ready();
+  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">📚</span><div><b>' + (aiOn ? '✨ AI 배움터' : '배움터') + '</b><small>' + madeBy + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<div class="lab">' + (P.calc ? '<button class="pick-big lab-calc" data-act="calc"><span>' + P.calc.icon + '</span><b>' + esc(P.calc.title) + '</b><small>내 하루 이산화탄소를 계산하고' + (aiOn ? ' AI 코치가' : '') + ' 줄이는 방법을 알려 줘요</small></button>' : '') +
+    '<button class="pick-big lab-ask" data-act="ask"><span>💬</span><b>' + (aiOn ? 'AI 선생님 ' : '') + esc(P.mascot.name) + '에게 묻기</b><small>' + (aiOn ? '궁금한 걸 물으면 근거 카드 안에서 AI가 대답해요' : '이야기 카드에서 찾아서 대답해요') + '</small></button>' +
+    '<button class="pick-big lab-learn" data-act="learn"><span>📖</span><b>배우기</b><small>주제를 고르면 ' + esc(GRADES[state.grade].label) + ' 눈높이 짧은 수업 + 확인 문제</small></button>' +
+    '<button class="pick-big lab-quiz" data-act="quiz"><span>📝</span><b>문제 풀기</b><small>틀리면 ' + (aiOn ? 'AI가 네 답에 맞춰' : '') + ' 다시 설명해 줘요</small></button></div>', { cls: 'menu lab-card' });
   mcard.onclick = function (e) {
+    if (e.target.closest('[data-act="calc"]')) { SFX.click(); openCalc(); return; }
     var a = e.target.closest('[data-act]'); if (!a) return; SFX.click(); var act = a.dataset.act;
     if (act === 'close') closeModal(); if (act === 'learn') openLearn(); if (act === 'ask') openChat();
     if (act === 'quiz') {
@@ -460,19 +480,85 @@ function openLesson(cardId) {
   };
   render();
 }
-/* 묻기: 이야기 카드 검색 (AI 없음) */
+/* ------------------------------------------------------------
+   🧮 내 탄소 재기 — 계산은 정해진 계수로(팩의 calc), AI는 코칭만 (숫자 대조 검증)
+   ------------------------------------------------------------ */
+function r2(x) { return Math.round(x * 100) / 100; }
+function calcItems(ans) {
+  var C = P.calc, km = 1;
+  C.questions.forEach(function (q) { if (q.km && ans[q.id] != null) km = q.options[ans[q.id]].v; });
+  var kgOf = function (o) { return o.kg != null ? o.kg : (o.perKm || 0) * km * 2; };
+  return C.questions.filter(function (q) { return !q.km && ans[q.id] != null; }).map(function (q) {
+    var o = q.options[ans[q.id]], kg = kgOf(o), best = q.bestIdx != null ? q.options[q.bestIdx] : q.options.slice().sort(function (a, b) { return kgOf(a) - kgOf(b); })[0], bk = kgOf(best);
+    return { q: q, opt: o, kg: r2(kg), save: r2(Math.max(0, kg - bk)) };
+  });
+}
+function openCalc() {
+  var C = P.calc; if (!C) return; var ans = {}, i = 0, qs = C.questions;
+  function needKm() { var g = qs.find(function (q) { return q.id === 'go'; }); return !g || ans.go == null || g.options[ans.go].perKm; }
+  function steps() { return qs.filter(function (q) { return !q.km || needKm(); }); }
+  function ask() {
+    var list = steps(), q = list[i];
+    openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">' + C.icon + '</span><div><b>' + esc(C.title) + ' · ' + (i + 1) + '/' + list.length + '</b><small>' + esc(C.intro) + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+      '<div class="slide-dots">' + list.map(function (_, k) { return '<i class="' + (k <= i ? 'on' : '') + '"></i>'; }).join('') + '</div>' +
+      '<h3 class="calc-q">' + esc(q.q) + '</h3><div class="calc-opts">' + q.options.map(function (o, k) { return '<button class="calc-opt' + (ans[q.id] === k ? ' on' : '') + '" data-k="' + k + '">' + esc(o.t) + '</button>'; }).join('') + '</div>' +
+      '<div class="btns">' + (i > 0 ? '<button class="ghost" data-act="prev">◀ 이전</button>' : '') + '</div>', { cls: 'calc' });
+    TTS.speak(q.q, 'bear');
+    mcard.onclick = function (e) {
+      var b = e.target.closest('[data-k]'); if (b) { SFX.click(); ans[q.id] = +b.dataset.k; var l2 = steps(); if (i < l2.length - 1) { i++; ask(); } else result(); return; }
+      var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'prev') { i = Math.max(0, i - 1); ask(); }
+    };
+  }
+  function result() {
+    var items = calcItems(ans), day = r2(items.reduce(function (s, x) { return s + x.kg; }, 0)), year = Math.round(day * 365), tree = C.factors.tree, trees = Math.round(year / tree * 10) / 10;
+    var chg = items.filter(function (x) { return x.save >= 0.01; }).sort(function (a, b) { return b.save - a.save; }).slice(0, 3).map(function (x) { var y = Math.round(x.save * 365); return Object.assign(x, { year: y, trees: Math.round(y / tree * 10) / 10 }); });
+    var maxKg = Math.max.apply(null, items.map(function (x) { return x.kg; }).concat([0.01]));
+    state.carbon = { day: day, year: year, date: today() }; save();
+    var evs = items.map(function (x) { return x.q.ev; }).concat([C.treeEv]).filter(function (id, k, a) { return id && CARD[id] && a.indexOf(id) === k; });
+    var aiOn = window.GQAI && GQAI.ready();
+    var fallback = chg.length ? '가장 크게 줄일 수 있는 건 "' + chg[0].q.best + '"이야. ' + chg[0].q.bestWhy + ' 이것만 바꿔도 1년에 약 ' + chg[0].year + 'kg을 줄일 수 있어. 오늘 하나만 골라서 해 볼래?' : '와, 이미 지구를 아끼는 생활을 하고 있구나! 지금 습관을 친구와 가족에게도 알려 주자.';
+    openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">' + C.icon + '</span><div><b>' + esc(C.title) + ' 결과</b><small>' + esc(lvInfo().label) + ' · 오늘 고른 생활 기준</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+      '<div class="calc-total"><div><small>내 하루 이산화탄소</small><b>' + day.toFixed(2) + '<i>kg</i></b></div><div><small>매일 이렇게 1년이면</small><b>' + year + '<i>kg</i></b></div><div><small>소나무가 1년 동안 빨아들이는 양으로</small><b>' + trees + '<i>그루</i></b></div></div>' +
+      '<ul class="calc-bars">' + items.map(function (x) { return '<li><span>' + esc(x.q.q.replace(/\s*\(.*\)$/, '')) + '</span><div class="bar"><i style="width:' + Math.max(2, Math.round(x.kg / maxKg * 100)) + '%"></i></div><b>' + x.kg.toFixed(2) + 'kg</b></li>'; }).join('') + '</ul>' +
+      (chg.length ? '<div class="calc-chg"><b>🌱 이렇게 바꾸면</b>' + chg.map(function (x, k) { return '<label class="chg"><input type="radio" name="pledge" value="' + k + '"' + (k === 0 ? ' checked' : '') + '><span><b>' + esc(x.q.best) + '</b><small>1년 −' + x.year + 'kg · 소나무 ' + x.trees + '그루 몫</small></span></label>'; }).join('') + '</div>' : '') +
+      '<div class="coach"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p id="coachText">' + esc(aiOn ? 'AI 탄소 코치가 네 결과를 보고 있어…' : fallback) + '</p><small class="aimark" id="coachNote">' + (aiOn ? '✨ AI 탄소 코치' : '📗 기본 코칭') + '</small></div></div>' +
+      '<details class="evsmall"><summary>📄 계산 근거 보기</summary><p>' + esc(C.note) + '</p><ul>' + evs.map(function (id) { return '<li><b>' + esc(CARD[id].title) + '</b> ' + esc(CARD[id].text) + '</li>'; }).join('') + '</ul></details>' +
+      '<div class="btns">' + (chg.length ? '<button class="primary big" data-act="pledge" data-autofocus>이 실천 약속하기 🌱</button>' : '') + '<button class="ghost" data-act="again">다시 재기</button><button class="ghost" data-act="close">닫기</button></div>', { cls: 'calc' });
+    SFX.fanfare(); if (world) world.cheer();
+    if (aiOn) {
+      var shown = '하루 ' + day.toFixed(2) + 'kg, 1년 ' + year + 'kg, 소나무 ' + trees + '그루 ' + items.map(function (x) { return x.kg.toFixed(2); }).join(' ') + ' ' + chg.map(function (x) { return x.year + 'kg ' + x.trees + '그루'; }).join(' ');
+      var facts = evs.map(function (id) { return CARD[id].title + ': ' + CARD[id].text; }).join('\n'), L = lvInfo();
+      GQAI.chat([{ role: 'system', content: '너는 탄소중립 체험실의 AI 탄소 코치 "' + P.mascot.name + '"야. 대상: ' + L.label + ' (' + L.desc + ')\n학생의 하루 생활로 계산한 결과를 보고 3~4문장으로 코칭해. ① 잘하고 있는 점 하나 칭찬 ② 가장 효과 큰 바꾸기 하나와 그 이유(근거 사실로) ③ 바꾸면 줄어드는 양을 아래 숫자 그대로 ④ 오늘 해 볼 한 가지 약속 제안. 아래에 없는 숫자는 절대 쓰지 마. 다정한 반말, 겁주는 말·이모지 금지.' },
+        { role: 'user', content: '[학생의 선택]\n' + items.map(function (x) { return '- ' + x.q.q + ' → ' + x.opt.t.replace(/^\W+\s*/, '') + ' (하루 ' + x.kg.toFixed(2) + 'kg)'; }).join('\n') + '\n[합계] 하루 ' + day.toFixed(2) + 'kg, 1년 ' + year + 'kg, 소나무 ' + trees + '그루가 1년 동안 빨아들이는 양\n[바꾸면 줄어드는 양]\n' + (chg.length ? chg.map(function (x) { return '- ' + x.q.best + ': 1년 ' + x.year + 'kg (소나무 ' + x.trees + '그루 몫)'; }).join('\n') : '- 이미 가장 좋은 선택을 했어요') + '\n[근거 사실]\n' + facts }], { maxTokens: 420 })
+        .then(function (t) {
+          var el = $('#coachText'), nt = $('#coachNote'); if (!el) return; var v = GQAI.verify(t, { maxLen: 380, numbers: shown + ' ' + facts });
+          if (v.ok) { el.textContent = v.text; nt.textContent = '✨ AI 탄소 코치 · 숫자는 계산 결과와 대조해 확인했어요'; TTS.speak(v.text, 'bear'); }
+          else { el.textContent = fallback; nt.textContent = '📗 기본 코칭 (AI 답이 검증에서 걸러짐: ' + v.why + ')'; }
+        }, function () { var el = $('#coachText'); if (el) { el.textContent = fallback; $('#coachNote').textContent = '📗 기본 코칭 (AI 연결 안 됨)'; } });
+    } else TTS.speak(fallback, 'bear');
+    mcard.onclick = function (e) {
+      var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
+      if (act === 'close') closeModal(); if (act === 'again') { ans = {}; i = 0; ask(); }
+      if (act === 'pledge') { var r = mcard.querySelector('input[name="pledge"]:checked'), x = chg[r ? +r.value : 0]; state.homework = { text: x.q.best + ' (1년 −' + x.year + 'kg)', why: x.q.bestWhy, ev: x.q.ev, date: today(), done: false }; save(); SFX.fanfare(); confetti(30); toast('🌱 약속했어요! 다음에 오면 "해 봤어?" 하고 물어볼게요', 3600); closeModal(); }
+    };
+  }
+  ask();
+}
+
+/* 묻기: 이야기 카드 검색 (AI가 켜져 있으면 AI 선생님이 카드 안에서 대답) */
 var chat = [];
 function chatHTML() {
   var turns = chat.length ? chat.map(function (t) {
     if (t.role === 'user') return '<div class="msg me"><p>' + esc(t.content) + '</p>' + (t.masked && t.masked.length ? '<small class="mask">🔒 비밀 지킴: ' + esc(t.masked.join('·')) + ' → ○○로 가렸어요</small>' : '') + '</div>';
     var cites = (t.cites || []).map(function (id) { var c = CARD[id]; return c ? '<button class="cite" data-card="' + id + '">📄 ' + esc(c.title) + '</button>' : ''; }).join('');
-    return '<div class="msg bear"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p>' + esc(t.content) + '</p>' + (cites ? '<div class="cites">' + cites + '</div>' : '') + '</div></div>';
+    return '<div class="msg bear' + (t.pending ? ' pending' : '') + '"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p>' + esc(t.content) + '</p>' + (t.note ? '<small class="aimark">' + esc(t.note) + '</small>' : '') + (cites && !t.pending ? '<div class="cites">' + cites + '</div>' : '') + '</div></div>';
   }).join('') : '<div class="msg bear"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p>' + esc(P.mascot.hi) + '</p></div></div>';
-  return '<div class="who" style="--zc:' + P.mascot.color + '"><span class="ava">' + AE[P.mascot.animal] + '</span><div><b>' + esc(P.mascot.name) + '에게 묻기</b><small>이야기 카드 ' + P.cards.length + '장에서 찾아서 대답해요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+  var aiOn = window.GQAI && GQAI.ready();
+  return '<div class="who" style="--zc:' + P.mascot.color + '"><span class="ava">' + AE[P.mascot.animal] + '</span><div><b>' + (aiOn ? '✨ AI 선생님 ' : '') + esc(P.mascot.name) + '에게 묻기</b><small>' + (aiOn ? '근거 카드 ' + P.cards.length + '장 안에서만 AI가 ' + esc(lvInfo().label) + ' 눈높이로 대답해요' : '이야기 카드 ' + P.cards.length + '장에서 찾아서 대답해요') + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="chat" id="chatLog">' + turns + '</div><div class="cardview" id="cardview" hidden></div>' +
     '<div class="chips">' + P.suggest.map(function (s) { return '<button class="chip" data-q="' + esc(s) + '">' + esc(s) + '</button>'; }).join('') + '</div>' +
     '<form class="ask" id="askForm"><input id="askIn" maxlength="120" autocomplete="off" placeholder="궁금한 걸 적어 봐! (이름·학교·주소는 비밀)" aria-label="물어볼 말"><button class="primary">보내기</button></form>' +
-    '<p class="fine">🔒 대화는 저장되지 않고 어디로도 보내지 않아요. 카드에 있는 내용으로만 대답해요.</p>';
+    '<p class="fine">🔒 대화는 저장되지 않아요. 이름·전화·주소·학교는 AI에 보내기 전에 ○○로 가려요. 카드에 있는 내용으로만 대답하고, 카드와 맞지 않는 AI 답은 걸러요.</p>';
 }
 function openChat() { openModal(chatHTML(), { cls: 'chatwin' }); bindChat(); if (!chat.length) TTS.speak(P.mascot.hi, 'bear'); }
 function renderChat() { mcard.innerHTML = chatHTML(); bindChat(); var log = $('#chatLog'); if (log) log.scrollTop = log.scrollHeight; }
@@ -486,11 +572,30 @@ function bindChat() {
   };
   setTimeout(function () { var i = $('#askIn'); if (i && !('ontouchstart' in window)) i.focus(); }, 50);
 }
+var aiBusy = false;
+function aiAnswer(q) {
+  var hits = TX.retrieve(CARD_IDX, q, 3);
+  if (!hits.length) { chat.push({ role: 'assistant', content: '음… 그건 ' + P.mascot.name + '가 가진 이야기 카드에는 없는 내용이야. 탄소중립·에너지·재활용·숲·교통에 대해 물어봐 줄래?' }); renderChat(); return; }
+  var L = lvInfo(), cards = hits.map(function (h) { return h.it; });
+  var block = cards.map(function (c) { return '[' + c.id + '] ' + c.title + ': ' + c.text; }).join('\n');
+  var history = chat.filter(function (t) { return t.role === 'user' || t.ai; }).slice(-6).map(function (t) { return { role: t.role, content: t.content }; });
+  var msg = { role: 'assistant', content: '생각하는 중…', cites: cards.map(function (c) { return c.id; }), ai: true, pending: true }; chat.push(msg); renderChat(); aiBusy = true;
+  GQAI.chat([{ role: 'system', content: '너는 "' + P.title + '" 체험실의 AI 선생님 "' + P.mascot.name + '"야. 대상: ' + L.label + ' (' + L.desc + ')\n규칙: 아래 [근거 카드] 내용으로만 2~4문장으로 답해. 카드에 없는 사실·숫자는 절대 말하지 말고, 카드에 없는 질문이면 "카드에는 없는 내용"이라고 말한 뒤 관련된 걸 물어보게 도와줘. 마지막 문장은 오늘 해 볼 작은 실천 하나. 다정한 반말, 겁주는 말·이모지·링크 금지.\n[근거 카드]\n' + block }].concat(history),
+    { maxTokens: 420, onDelta: function (t) { if (!t) return; msg.content = t; var b = document.querySelector('#chatLog .msg.pending p'); if (b) b.textContent = t; } })
+    .then(function (t) {
+      var v = GQAI.verify(t, { ground: block, numbers: block + ' ' + q, min: 0.1 });
+      if (v.ok) { msg.content = v.text; msg.note = '✨ AI 선생님 · 근거 카드 ' + cards.length + '장만 보고 답했어요'; }
+      else { msg.content = P.mascot.name + '가 이야기 카드에서 찾아봤어! ' + cards[0].text; msg.note = '📗 AI 답이 검증(' + v.why + ')에서 걸러져 카드 원문을 보여 줘요'; msg.cites = [cards[0].id]; }
+    }, function () { msg.content = P.mascot.name + '가 이야기 카드에서 찾아봤어! ' + cards[0].text; msg.note = '📗 AI 연결이 안 돼서 카드 원문을 보여 줘요'; })
+    .then(function () { msg.pending = false; aiBusy = false; if (!modal.hidden && $('#chatLog')) renderChat(); TTS.speak(msg.content, 'bear'); });
+}
 function sendAsk(text) {
+  if (aiBusy) { toast(P.mascot.name + '가 아직 대답하고 있어요'); return; }
   SFX.click(); var m = window.GQSafety.maskPII(text), c = window.GQSafety.checkInput(m.text);
   chat.push({ role: 'user', content: m.text, masked: m.found });
   var reply;
   if (!c.ok) reply = { content: c.reply };
+  else if (window.GQAI && GQAI.ready()) { renderChat(); aiAnswer(c.text); return; }
   else { var hits = TX.retrieve(CARD_IDX, c.text, 2); if (!hits.length) reply = { content: '음… 그건 ' + P.mascot.name + '가 가진 이야기 카드에는 없는 내용이야. 아래 질문 중에 골라 볼래?' }; else reply = { content: P.mascot.name + '가 이야기 카드에서 찾아봤어! ' + hits[0].it.text, cites: hits.map(function (h) { return h.it.id; }) }; }
   chat.push(Object.assign({ role: 'assistant' }, reply)); if (chat.length > 30) chat = chat.slice(-30); renderChat(); TTS.speak(reply.content, 'bear');
 }
@@ -629,6 +734,7 @@ function openMenu() {
   openModal('<div class="who" style="--zc:#7d93a6"><span class="ava">⚙️</span><div><b>설정</b><small>보호자·선생님용</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="set-sec"><h3>학년</h3><div class="pick" data-k="grade">' + GRADES.map(function (g) { return '<button class="pk ' + (state.grade === g.id ? 'on' : '') + '" data-v="' + g.id + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
     '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 대사를 소리 내어 읽어 주기</label><label class="tg"><input type="checkbox" id="optBgm" ' + (pref('gq.bgm', '1') === '1' ? 'checked' : '') + '> 잔잔한 배경음악</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
+    aiSettingsHTML() +
     '<div class="set-sec"><h3>이 체험관</h3><p class="fine"><b>' + esc(P.title) + '</b>' + (P.subtitle ? ' · ' + esc(P.subtitle) : '') + (P.org ? ' · ' + esc(P.org) : '') + '<br>' + (P.meta.model ? '✨ AI 체험관 메이커로 생성(' + esc(P.meta.model) + ') · 담당자 승인 ' + (P.meta.approved ? '완료' : '전') : '📗 ' + esc(P.meta.note || '사람이 만든 기본 체험관')) + '</p><div class="btns left"><button class="ghost" data-act="packs">다른 체험관 열기</button><a class="ghost btnlike" href="maker.html">🛠️ 메이커 열기</a></div></div>' +
     '<div class="set-sec"><h3>보호자·선생님 안내</h3><ul class="fine list"><li>로그인이 없고, 이름·학교 같은 개인정보를 받지 않아요. 진행 기록은 이 기기 브라우저에만 저장돼요.</li><li>체험 화면에서는 AI가 실시간으로 말하지 않아요. 수업·문제·설명은 모두 메이커에서 미리 만들어 담당자가 확인한 글이에요.</li><li>내용은 체험용 예시이며 실제 운영 전 감수가 필요해요.</li></ul><div class="btns left"><button class="ghost danger" data-act="reset">처음부터 다시 하기</button></div></div>', { cls: 'menu' });
   $('#optTTS').onchange = function () { TTS.on = this.checked; setPref('gq.tts', this.checked ? '1' : '0'); };
@@ -637,7 +743,7 @@ function openMenu() {
   mcard.onclick = function (e) {
     var pk = e.target.closest('.pk'); if (pk) { state.grade = +pk.dataset.v; save(); mcard.querySelectorAll('[data-k="grade"] .pk').forEach(function (b) { b.classList.toggle('on', b === pk); }); toast(GRADES[state.grade].label + ' 눈높이로 보여 줄게요'); return; }
     var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
-    if (act === 'close') closeModal(); if (act === 'packs') openPacks();
+    if (act === 'close') closeModal(); if (act === 'packs') openPacks(); if (act === 'ai') openAiSettings(); if (act === 'aioff') { GQAI.off(); toast('AI를 껐어요. 기본 자료로 진행해요'); openMenu(); }
     if (act === 'reset') { if (confirm('지금까지의 진행(도장·별·숙제)을 모두 지우고 처음부터 할까요?')) { localStorage.removeItem(SAVE_KEY); location.reload(); } }
   };
 }
@@ -652,6 +758,31 @@ function openPacks() {
     var o = e.target.closest('[data-open]'); if (o) { location.href = location.pathname + (o.dataset.open === PK.DEFAULT_ID ? '' : '?pack=' + encodeURIComponent(o.dataset.open)); return; }
     var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'close') closeModal();
     if (a.dataset.act === 'url') { var u = prompt('팩 JSON 주소(https://…) 또는 메이커 링크를 붙여 넣으세요'); if (!u) return; if (/#p=/.test(u)) location.href = u; else location.href = location.pathname + '?pack=' + encodeURIComponent(u.trim()); }
+  };
+}
+var MAKER_URL = window.GQ_MAKER_URL || 'maker.html';
+function aiSettingsHTML() {
+  var on = window.GQAI && GQAI.ready();
+  return '<div class="set-sec"><h3>✨ AI 연결 <small>선생님·보호자용</small></h3><p class="fine">' + (on ? '지금 <b>' + esc(GQAI.label()) + '</b>에 연결되어 AI 선생님·탄소 코치·맞춤 설명이 켜져 있어요. AI 답은 근거 카드·숫자 대조·안전 점검을 통과해야 화면에 나와요.' : 'AI가 꺼져 있어요. 기본 자료(검수된 카드·설명)로 진행해요. 기관 AI 서버(행정안전부 AI 공통기반 등)를 연결하면 켜져요.') + '</p><div class="btns left"><button class="ghost" data-act="ai">AI 연결 설정</button>' + (on && !(window.GQ_AI_DEFAULT && GQAI.cfg().provider === window.GQ_AI_DEFAULT.provider) ? '<button class="ghost" data-act="aioff">AI 끄기</button>' : '') + '</div>' +
+    '<p class="fine">🏫 선생님·기관: 교육자료를 넣으면 AI가 새 체험 마을을 만들어 줘요 → <a href="' + esc(MAKER_URL) + '" target="_blank" rel="noopener">AI 체험 마을 메이커 열기</a></p></div>';
+}
+function openAiSettings() {
+  var c = GQAI.cfg(), P0 = (window.GreenLLM.PRESETS || []).filter(function (p) { return p.provider !== 'webllm' && (p.id !== 'artifact' || (window.GQ_AI_DEFAULT && window.GQ_AI_DEFAULT.provider === 'claude-artifact')) && p.id !== 'gemini'; });
+  openModal('<div class="who" style="--zc:#7d93a6"><span class="ava">✨</span><div><b>AI 연결 설정</b><small>선생님·보호자용 · 키는 이 기기 브라우저에만 둬요</small></div><button class="mini" data-act="back" aria-label="뒤로">←</button></div>' +
+    '<label class="lbl">빠른 설정<select id="aiP"><option value="">직접 입력</option>' + P0.map(function (p) { return '<option value="' + p.id + '">' + esc(p.label) + '</option>'; }).join('') + '</select></label>' +
+    '<label class="lbl">연결 방식<select id="aiV">' + ['openai', 'anthropic', 'claude-artifact'].map(function (v) { return '<option' + (c.provider === v ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select></label>' +
+    '<label class="lbl">주소 (Base URL)<input id="aiU" value="' + esc(c.baseUrl || '') + '" placeholder="기관 AI 서버 주소 (OpenAI 호환)"></label>' +
+    '<label class="lbl">모델 이름<input id="aiM" value="' + esc(c.model || '') + '"></label>' +
+    '<label class="lbl">API 키 (필요할 때만)<input id="aiK" type="password" value="' + esc(c.apiKey || '') + '"></label>' +
+    '<p class="fine">학생이 쓰는 화면이라 18세 미만 이용을 막는 서비스(예: 일부 무료 API)는 쓰지 마세요. 기관 서버를 권장해요.</p><p class="fine" id="aiOut"></p>' +
+    '<div class="btns"><button class="ghost" data-act="test">연결 테스트</button><button class="primary" data-act="save">저장</button></div>', { cls: 'menu' });
+  var form = function () { return Object.assign(GQAI.cfg(), { provider: $('#aiV').value, baseUrl: $('#aiU').value.trim(), model: $('#aiM').value.trim(), apiKey: $('#aiK').value.trim() }); };
+  $('#aiP').onchange = function () { var p = P0.find(function (x) { return x.id === this.value; }, this); if (p) { $('#aiV').value = p.provider; $('#aiU').value = p.baseUrl; $('#aiM').value = p.model; } };
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
+    if (act === 'back') openMenu();
+    if (act === 'test') { var f = form(); $('#aiOut').textContent = '연결하는 중…'; window.GreenLLM.chat(f, [{ role: 'user', content: '"준비 완료"라고만 답해.' }], { stream: false }).then(function (t) { $('#aiOut').textContent = '✅ 성공: ' + String(t).slice(0, 30); }, function (er) { $('#aiOut').textContent = '❌ 실패: ' + er.message; }); }
+    if (act === 'save') { GQAI.save(form()); toast(GQAI.ready() ? '✨ AI를 연결했어요' : 'AI 설정을 저장했어요 (아직 연결 안 됨)'); openMenu(); }
   };
 }
 function updateSoundBtn() { $('#btnSound').textContent = SFX.muted() ? '🔇' : '🔊'; }
@@ -773,8 +904,9 @@ function mountCreator(box, draft, onChange) {
   return { random: function () { AV_KEYS.forEach(function (k) { var pick = AV[k][Math.floor(Math.random() * AV[k].length)]; draft[k] = Array.isArray(pick) ? pick[0] : pick; }); changed(); } };
 }
 function renderStart() {
-  $('#stTitle').textContent = P.title; $('#stSub').textContent = P.subtitle; $('#stLead').textContent = P.lead; document.title = P.title + ' — 체험관';
-  $('#stMade').innerHTML = '<b>✨ AI 체험관 메이커</b> · 교육자료 넣기 → AI 생성 → 근거 검증 → 담당자 승인 → 발행' + (P.meta.model ? '<br>이 체험관은 AI(' + esc(P.meta.model) + ')가 만들고 ' + esc(P.org || '담당자') + '가 승인했어요' : (P.org ? '<br>' + esc(P.org) : ''));
+  $('#stTitle').textContent = P.title; $('#stSub').textContent = P.subtitle; $('#stLead').textContent = P.lead; document.title = 'AI 탄소중립 체험실 · ' + P.title;
+  var ai = window.GQAI && GQAI.ready();
+  $('#stMade').innerHTML = (ai ? '<b>✨ AI 연결됨 (' + esc(GQAI.label()) + ')</b> · AI 선생님 · AI 탄소 코치 · AI 맞춤 설명' : '<b>AI 선생님 · AI 탄소 코치 · AI 맞춤 설명</b> · AI를 연결하면 켜져요 (⚙️ 설정)') + '<br>' + esc(P.org || '') + (P.meta.model ? ' · 이 마을은 AI(' + esc(P.meta.model) + ')로 만들고 담당자가 승인했어요' : '');
   $('#grades').innerHTML = GRADES.map(function (g) { return '<button class="grade ' + (state.grade === g.id ? 'on' : '') + '" data-g="' + g.id + '"><b>' + g.label + '</b><small>' + g.sub + '</small></button>'; }).join('');
   var mine = !PRESETS.some(function (p) { return sameLook(state.look, p[1]); });
   $('#avatars').innerHTML = PRESETS.map(function (p, i) { return '<button class="preset ' + (sameLook(state.look, p[1]) ? 'on' : '') + '" data-av="' + i + '" aria-label="' + esc(p[0]) + '">' + lookSVG(p[1], 'pv') + '<small>' + esc(p[0]) + '</small></button>'; }).join('') +
@@ -794,6 +926,7 @@ $('#btnStart').addEventListener('click', function () {
   var h = $('#hint'); h.hidden = false; setTimeout(function () { h.hidden = true; }, 9000); refreshTalk();
 });
 $('#fabLearn').addEventListener('click', function () { SFX.init(); SFX.click(); openLearnHub(); });
+$('#fabCalc').addEventListener('click', function () { SFX.init(); SFX.click(); if (P.calc) openCalc(); else openLearnHub(); });
 $('#fabBear').addEventListener('click', function () { SFX.init(); SFX.click(); openBear(); });
 $('#fabWear').addEventListener('click', function () { SFX.init(); SFX.click(); openWardrobe(); });
 $('#fabPhoto').addEventListener('click', function () { SFX.init(); openPhoto(); });
