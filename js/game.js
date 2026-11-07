@@ -334,7 +334,7 @@ function startQuiz(zone) {
   renderQ(items[0]);
 }
 function dots() { return '<div class="dots">' + Q.items.map(function (_, i) { return '<i class="' + (i < Q.i ? 'done' : i === Q.i ? 'now' : '') + '"></i>'; }).join('') + '</div>'; }
-function evBox(it) { var c = CARD[it.ev]; if (!c) return ''; return '<div class="evbox" hidden><b>📄 어디서 나온 말이야? — ' + esc(c.title) + '</b><p>' + esc(c.text) + '</p><small>' + (P.meta.model ? '✨ 메이커에서 AI가 만들고 담당자가 승인한 문제' : '📗 사람이 검수한 문제') + ' · 근거 카드 ' + esc(c.id) + '</small></div>'; }
+function evBox(it) { var c = CARD[it.ev]; if (!c) return ''; return '<div class="evbox" hidden><b>📄 어디서 나온 말이야? — ' + esc(c.title) + '</b><p>' + esc(c.text) + '</p><small>' + (P.meta.model ? '✨ 메이커에서 AI가 만들고 담당자가 승인한 문제' : '📗 담당자가 검수한 문제') + ' · 근거 카드 ' + esc(c.id) + '</small></div>'; }
 function renderQ(it) {
   Q.cur = it; var z = ZMAP[Q.zone];
   var opts = it.type === 'ox' ? '<div class="ox"><button class="opt o" data-a="O"><span>O</span>맞아요</button><button class="opt x" data-a="X"><span>X</span>아니에요</button></div>'
@@ -397,7 +397,7 @@ function finishQuiz() {
    ------------------------------------------------------------ */
 function hasAiLessons() { var lv = level(); return Object.keys(P.lessons).some(function (k) { return P.lessons[k][lv] || P.lessons[k][String(lv)]; }); }
 function openLearnHub() {
-  var madeBy = P.meta.model ? '✨ 이 체험관의 수업·문제는 메이커에서 AI(' + esc(P.meta.model) + ')가 만들고 ' + esc(P.org || '담당자') + '가 승인했어요' : '📗 이 체험관의 수업·문제는 사람이 검수한 자료예요';
+  var madeBy = P.meta.model ? '✨ 이 체험관의 수업·문제는 메이커에서 AI(' + esc(P.meta.model) + ')가 만들고 ' + esc(P.org || '담당자') + '가 승인했어요' : '📗 이 체험관의 수업·문제는 담당자가 검수한 자료예요 · 메이커로 다른 주제도 만들 수 있어요';
   openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">📚</span><div><b>배움터</b><small>' + madeBy + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="lab"><button class="pick-big lab-learn" data-act="learn"><span>📖</span><b>배우기</b><small>주제를 고르면 ' + esc(GRADES[state.grade].label) + ' 눈높이 짧은 수업 + 확인 문제</small></button>' +
     '<button class="pick-big lab-quiz" data-act="quiz"><span>📝</span><b>문제 풀기</b><small>마을을 고르면 문제를 내고, 틀리면 다시 설명해 줘요</small></button>' +
@@ -774,7 +774,7 @@ function mountCreator(box, draft, onChange) {
 }
 function renderStart() {
   $('#stTitle').textContent = P.title; $('#stSub').textContent = P.subtitle; $('#stLead').textContent = P.lead; document.title = P.title + ' — 체험관';
-  $('#stMade').innerHTML = (P.meta.model ? '✨ AI 체험관 메이커로 만든 체험관' + (P.org ? ' · ' + esc(P.org) : '') + (P.meta.approved ? ' · 담당자 승인' : '') : '📗 ' + esc(P.org || '') + (P.org ? ' · ' : '') + '기본 체험관') + ' · 체험 화면에서는 AI를 쓰지 않아요';
+  $('#stMade').innerHTML = '<b>✨ AI 체험관 메이커</b> · 교육자료 넣기 → AI 생성 → 근거 검증 → 담당자 승인 → 발행' + (P.meta.model ? '<br>이 체험관은 AI(' + esc(P.meta.model) + ')가 만들고 ' + esc(P.org || '담당자') + '가 승인했어요' : (P.org ? '<br>' + esc(P.org) : ''));
   $('#grades').innerHTML = GRADES.map(function (g) { return '<button class="grade ' + (state.grade === g.id ? 'on' : '') + '" data-g="' + g.id + '"><b>' + g.label + '</b><small>' + g.sub + '</small></button>'; }).join('');
   var mine = !PRESETS.some(function (p) { return sameLook(state.look, p[1]); });
   $('#avatars').innerHTML = PRESETS.map(function (p, i) { return '<button class="preset ' + (sameLook(state.look, p[1]) ? 'on' : '') + '" data-av="' + i + '" aria-label="' + esc(p[0]) + '">' + lookSVG(p[1], 'pv') + '<small>' + esc(p[0]) + '</small></button>'; }).join('') +
