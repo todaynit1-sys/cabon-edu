@@ -56,7 +56,7 @@ function normalize(p) {
     var m = z.mission || {};
     var spots = (m.spots || []).map(function (s, k) {
       var o = { id: s.id || (z.id || 'z' + i) + '-' + (k + 1), label: s.label || ('할 일 ' + (k + 1)), say: s.say || '', ev: cardIds[s.ev] ? s.ev : '' };
-      if (s.act) o.act = s.act; if (s.prop) o.prop = s.prop; if (s.bin) o.bin = s.bin; if (s.ring) o.ring = true; if (s.ask && s.ask.q && s.ask.options) o.ask = s.ask; if (s.effect) o.effect = s.effect;
+      if (s.act) o.act = s.act; if (s.prop) o.prop = s.prop; if (s.bin) o.bin = s.bin; if (s.ring) o.ring = true; if (s.ask && s.ask.q && s.ask.options) o.ask = s.ask; if (s.effect) o.effect = s.effect; if (s.co2 && +s.co2.kg >= 0) o.co2 = { kg: +s.co2.kg || 0, times: +s.co2.times || 1, per: s.co2.per || "", basis: s.co2.basis || "" };
       return o;
     });
     if (tpl === 'ride') { // 탈것 1 + 고리 n (마지막은 목적지)

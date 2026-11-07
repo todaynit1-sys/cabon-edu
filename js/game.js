@@ -128,7 +128,7 @@ function updateHUD(instant) {
   $('#feverFace').textContent = f.face; $('#feverText').textContent = f.text; $('#meterName').textContent = P.hub.meter; $('#feverBar').style.width = Math.round((1 - k) * 100) + '%'; $('#hud .fever').className = 'fever card ' + f.cls;
   $('#stamps').innerHTML = ZONES.map(function (z) { var st = state.zones[z.id]; return '<button class="stamp-slot ' + (st.cleared ? 'done' : '') + '" data-walk="' + z.id + '" style="--zc:' + z.color + '" title="' + esc(z.name) + '"><span>' + z.icon + '</span><small>' + esc(z.short) + '</small>' + (st.cleared ? '<i>✓</i>' : '') + '</button>'; }).join('') +
     '<span class="counter" title="모은 별">⭐<b>' + totalStars() + '</b></span><span class="counter" title="반짝 씨앗">🌰<b>' + seedCount() + '/' + SEED_TOTAL + '</b></span>' + (state.sprouts ? '<span class="counter" title="실천 새싹">🌱<b>' + state.sprouts + '</b></span>' : '');
-  var n = spotsDone(); $('#feverSub').textContent = n ? '✅ 실천 ' + n + '개 → ☁️ 걱정 구름 ' + cloudsGone() + '개 사라짐' : '친구들과 직접 체험하면 내려가요';
+  var n = spotsDone(), cs = co2Sum(); $('#feverSub').textContent = n ? (cs.year > 0 ? '🧮 내가 체험으로 줄인 탄소 1년 ' + fmtKg(cs.year) + ' · 소나무 ' + treesOf(cs.year) + '그루 몫' : '✅ 실천 ' + n + '개 → ☁️ 걱정 구름 ' + cloudsGone() + '개 사라짐') : '친구들과 직접 체험하면 내려가요';
   if (world) world.setClean(k, instant); updateQuest();
 }
 /* 실천 → 지구 효과 (체험 하나를 마칠 때마다 "그래서 지구는?"을 눈에 보이게) */
@@ -136,20 +136,40 @@ var fxT = 0;
 function chainHTML(chain) { return '<div class="chain">' + (chain || []).map(function (c, i) { return (i ? '<i>→</i>' : '') + '<span class="ch">' + esc(c) + '</span>'; }).join('') + '</div>'; }
 function spotsDone() { return ZONES.reduce(function (s, z) { return s + missionDoneCount(z.id); }, 0); }
 function cloudsGone() { return ZONES.reduce(function (s, z) { var st = state.zones[z.id]; return s + (st.cleared ? 5 : Math.min(5, st.partial || 0)); }, 0); }
+/* 체험마다 줄인 탄소: 팩의 spot.co2 = { kg(이번 한 번), times(1년 횟수), per, basis(계산식) } */
+var TREE_KG = 6.6;
+function treesOf(kg) { var t = kg / ((P && P.calc && P.calc.factors && P.calc.factors.tree) || TREE_KG); return t >= 10 ? Math.round(t) : Math.round(t * 10) / 10; }
+function fmtKg(kg) { return kg >= 100 ? Math.round(kg).toLocaleString() + 'kg' : kg >= 1 ? (Math.round(kg * 10) / 10) + 'kg' : Math.round(kg * 1000) + 'g'; }
+function co2Sum() {
+  var now = 0, year = 0, list = [];
+  ZONES.forEach(function (z) { var d = state.zones[z.id].spots || {}; z.mission.spots.forEach(function (s) { if (d[s.id] && s.co2) { now += s.co2.kg; year += s.co2.kg * s.co2.times; list.push({ z: z, s: s }); } }); });
+  return { now: now, year: year, list: list };
+}
+function co2Line(d) {
+  var c = d.co2; if (!c) return '';
+  if (!c.kg) return '<div class="fx-co2"><b>🧮 탄소 계산</b><span>' + esc(c.basis) + '</span></div>';
+  var y = c.kg * c.times, all = co2Sum();
+  return '<div class="fx-co2"><b>🧮 이 체험으로 줄인 탄소 ' + fmtKg(c.kg) + '</b>' + (c.times > 1 ? '<span>' + esc(c.per) + ' 기준 · 1년 내내 하면 <b>' + fmtKg(y) + '</b> (소나무 ' + treesOf(y) + '그루 몫)</span>' : '<span>소나무 ' + treesOf(y) + '그루 몫</span>') +
+    '<small>계산: ' + esc(c.basis) + '</small><em>지금까지 체험으로 줄인 탄소 · 1년 ' + fmtKg(all.year) + '</em></div>';
+}
 function showEffect(zone, d, delta) {
   var z = ZMAP[zone], M = z.mission, el = $('#effect');
   el.innerHTML = '<div class="fx-head"><span>' + M.icon + '</span><b>' + esc(d.act ? d.act.replace(/^\S+\s/, '') : d.label) + '</b> 완료 → 그래서 지구는?</div>' + chainHTML(M.chain) +
-    (d.effect ? '<p class="fx-text">' + esc(d.effect) + '</p>' : '') +
+    (d.effect ? '<p class="fx-text">' + esc(d.effect) + '</p>' : '') + co2Line(d) +
     '<div class="fx-meter">🌡️ ' + esc(P.hub.meter) + ' <b>' + (delta > 0 ? '−' + delta + '%' : '곧 내려가요') + '</b> · ☁️ 걱정 구름 ' + cloudsGone() + '개 사라짐 · ✅ 실천 ' + spotsDone() + '개</div>';
-  el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); clearTimeout(fxT); fxT = setTimeout(function () { el.hidden = true; }, 9000);
+  el.hidden = false; var hb = 0; ['#hud .hud-left', '#stamps'].forEach(function (q) { var r = $(q) && $(q).getBoundingClientRect(); if (r && r.left < 420) hb = Math.max(hb, r.bottom); });
+  el.style.top = Math.round(hb + 8) + 'px'; el.style.maxHeight = Math.max(160, innerHeight - hb - 150) + 'px';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); clearTimeout(fxT); fxT = setTimeout(function () { el.hidden = true; }, 10000);
   if (delta > 0) { var fd = $('#feverDelta'); fd.textContent = '−' + delta + '%'; fd.hidden = false; fd.classList.remove('pop'); void fd.offsetWidth; fd.classList.add('pop'); setTimeout(function () { fd.hidden = true; }, 2600); }
 }
 $('#effect').addEventListener('click', function () { this.hidden = true; });
 function impactHTML() {
   var n = spotsDone(); if (!n) return '';
-  var heat = Math.round((1 - cleanLevel()) * 100);
-  return '<div class="impact"><b>📊 네 실천이 만든 변화</b><div class="impact-nums"><span>✅ 실천 <b>' + n + '</b>개</span><span>☁️ 걱정 구름 <b>' + cloudsGone() + '</b>개 사라짐</span><span>🌡️ ' + esc(P.hub.meter) + ' 100% → <b>' + heat + '%</b></span></div><ul>' +
-    ZONES.filter(function (z) { return missionDoneCount(z.id) > 0; }).map(function (z) { var M = z.mission; return '<li style="--zc:' + z.color + '"><span>' + M.icon + '</span><div><b>' + esc(M.title) + ' ' + missionDoneCount(z.id) + '/' + missionTotal(z.id) + '</b>' + chainHTML(M.chain) + '</div></li>'; }).join('') + '</ul></div>';
+  var heat = Math.round((1 - cleanLevel()) * 100), cs = co2Sum();
+  var zoneYear = function (z) { return cs.list.filter(function (x) { return x.z === z; }).reduce(function (s, x) { return s + x.s.co2.kg * x.s.co2.times; }, 0); };
+  return '<div class="impact"><b>📊 네 체험이 만든 변화</b><div class="impact-nums"><span>✅ 실천 <b>' + n + '</b>개</span>' + (cs.year > 0 ? '<span>🧮 줄인 탄소 1년 <b>' + fmtKg(cs.year) + '</b></span><span>🌲 소나무 <b>' + treesOf(cs.year) + '</b>그루 몫</span>' : '') + '<span>🌡️ ' + esc(P.hub.meter) + ' 100% → <b>' + heat + '%</b></span></div><ul>' +
+    ZONES.filter(function (z) { return missionDoneCount(z.id) > 0; }).map(function (z) { var M = z.mission, zy = zoneYear(z); return '<li style="--zc:' + z.color + '"><span>' + M.icon + '</span><div><b>' + esc(M.title) + ' ' + missionDoneCount(z.id) + '/' + missionTotal(z.id) + (zy > 0 ? ' · 1년 −' + fmtKg(zy) : '') + '</b>' + chainHTML(M.chain) + '</div></li>'; }).join('') + '</ul>' +
+    (cs.year > 0 ? '<details class="evsmall"><summary>🧮 탄소 계산 근거 보기</summary><ul>' + cs.list.filter(function (x) { return x.s.co2.kg > 0; }).map(function (x) { return '<li><b>' + esc(x.s.label) + '</b> ' + fmtKg(x.s.co2.kg) + ' × ' + x.s.co2.times + '번 = ' + fmtKg(x.s.co2.kg * x.s.co2.times) + ' · ' + esc(x.s.co2.basis) + '</li>'; }).join('') + '</ul></details>' : '') + '</div>';
 }
 var QUEST = null;
 function computeQuest() {
@@ -286,7 +306,7 @@ function missionComplete(zone) {
   var learned = M.spots.map(function (s) { var ss = TX.sentences(s.say).filter(function (x) { return x.replace(/[^가-힣]/g, '').length >= 8; }); return ss[0] || s.say; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).slice(0, 5);
   openModal('<div class="clear-top" style="--zc:' + z.color + '"><div class="big-stamp">' + M.icon + '<i>✓</i></div><h2>' + esc(M.title) + ' 체험 완료!</h2><div class="stars"><i>★</i><i>★</i><i>★</i></div></div><p class="say">' + esc(z.cleared) + '</p>' +
     '<div class="learned"><b>📒 오늘 체험하며 배운 것</b><ul>' + learned.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>' +
-    '<div class="sowhat"><b>🌍 그래서 지구는?</b>' + chainHTML(M.chain) + '</div>' +
+    '<div class="sowhat"><b>🌍 그래서 지구는?</b>' + chainHTML(M.chain) + (function () { var y = M.spots.reduce(function (t, x) { return t + (x.co2 ? x.co2.kg * x.co2.times : 0); }, 0); return y > 0 ? '<p class="fx-co2"><b>🧮 이 체험을 1년 동안 하면 탄소 −' + fmtKg(y) + '</b><span>소나무 ' + treesOf(y) + '그루가 1년 동안 빨아들이는 양이에요</span></p>' : ''; })() + '</div>' +
     '<div class="btns"><button class="primary big" data-act="close" data-autofocus>마을 구경하기 👀</button><button class="ghost" data-act="quiz">📝 문제로 확인하기</button><button class="ghost" data-act="game">' + G.icon + ' 놀이</button></div>', {
     cls: 'clear', onClose: function () {
       if (world) world.clearZone(zone); updateHUD(); checkUnlocks();

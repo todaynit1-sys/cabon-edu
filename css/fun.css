@@ -242,7 +242,7 @@ label.btnlike { cursor: pointer; }
 @media print { .fabs, .confetti, .flash, .saybubble { display: none !important; } }
 
 /* ---------- 실천 → 지구 효과 ("그래서 지구는?") ---------- */
-.effect { position: fixed; left: 12px; top: calc(150px + env(safe-area-inset-top)); z-index: 4; width: min(380px, calc(100% - 24px)); background: rgba(255, 253, 246, .97); border: 3px solid #b8e3a8; border-radius: 20px; padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer; }
+.effect { position: fixed; left: max(12px, env(safe-area-inset-left)); top: calc(150px + env(safe-area-inset-top)); z-index: 4; overflow: auto; width: min(380px, calc(100% - 24px)); background: rgba(255, 253, 246, .97); border: 3px solid #b8e3a8; border-radius: 20px; padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer; }
 .effect.show { animation: popin .45s cubic-bezier(.3, 1.5, .5, 1); }
 .fx-head { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
 .fx-head span { font-size: 24px; }
@@ -334,3 +334,8 @@ label.btnlike { cursor: pointer; }
 .aimark { display: block; color: #2f86c4; font-size: 12px; margin-top: 4px; }
 .lab .pick-big.lab-calc { border-color: #b8e3a8; box-shadow: 0 5px 0 #8fcf7a; background: #effae9; }
 @media (max-width: 640px) { .calc-total b { font-size: 22px; } .calc-q { font-size: 20px; } .calc-bars li { grid-template-columns: minmax(0, 1fr) 1.2fr auto; } }
+.fx-co2 { margin: 6px 0 4px; padding: 8px 10px; border-radius: 12px; background: #fff8e0; border: 2px solid #f2cf62; display: grid; gap: 2px; font-size: 13.5px; }
+.fx-co2 > b { font-size: 15px; color: #8a5a00; font-variant-numeric: tabular-nums; }
+.fx-co2 span b { color: #2f7d5b; }
+.fx-co2 small { color: var(--muted); font-size: 11.5px; }
+.fx-co2 em { font-style: normal; font-size: 12.5px; color: #2f7d5b; font-weight: 700; }
