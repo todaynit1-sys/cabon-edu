@@ -454,3 +454,43 @@ body:has(#start:not([hidden])) #joyZone { display: none; }
   #hud .stamps { grid-area: stamps; justify-self: end; order: 0; }
   .fever, .quest { width: 100%; box-sizing: border-box; }
 }
+
+/* ===== 👥 같이 하기 ===== */
+.fab.mp { background: #eef3ff; }
+#labels .tag.peer { pointer-events: auto; cursor: pointer; background: rgba(239, 246, 255, .96); border: 2px solid #8fb8ff; }
+#labels .tag.peer b { font-size: 15px; color: #2a4fa0; }
+#labels .tag.peer small { font-size: 11px; color: #2f7d5b; }
+#labels .tag.bubble { padding: 6px 12px; max-width: 220px; font-size: 14px; line-height: 1.35; background: #fff; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.15); white-space: normal; word-break: keep-all; }
+#labels .tag.bubble.me { background: #fff8e0; }
+#labels .tag.bubble.pop { animation: popin .3s cubic-bezier(.3, 1.5, .5, 1); }
+.chatlog { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(360px, 70vw); pointer-events: none; }
+.chatlog div { background: rgba(36, 65, 74, .78); color: #fff; padding: 5px 10px; border-radius: 12px; font-size: 13px; transition: opacity .7s; }
+.chatlog div b { color: #ffd166; font-weight: 700; }
+.chatlog div.sys { background: rgba(47, 125, 91, .82); }
+.chatlog div.fade { opacity: 0; }
+.chatbar { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 22; width: min(620px, calc(100% - 20px)); display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; align-items: center; background: rgba(255, 253, 246, .98); border-radius: 18px; padding: 8px; box-shadow: var(--shadow); }
+.chatbar input { min-width: 0; border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; background: #fff; color: var(--ink); }
+.chatbar button { border: 0; border-radius: 12px; padding: 10px 12px; background: #eef1ea; font-size: 15px; }
+.chatbar button.primary { background: var(--green); color: #fff; font-weight: 700; }
+.chatbar small { grid-column: 1 / -1; font-size: 11px; color: var(--muted); padding: 0 4px; }
+body.chatting #btnTalk, body.chatting #joyZone { visibility: hidden; }
+.tool .badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: #ff5a4f; color: #fff; font-size: 11px; font-style: normal; line-height: 18px; text-align: center; padding: 0 4px; }
+#btnChat { position: relative; }
+.grpcard { position: fixed; left: 50%; top: calc(150px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 6; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; background: rgba(255, 253, 246, .97); border: 2px solid #8fb8ff; border-radius: 16px; padding: 8px 12px; box-shadow: var(--shadow); max-width: calc(100% - 24px); }
+.grpcard b { font-size: 14px; } .grpcard small { grid-column: 1; font-size: 11.5px; color: var(--muted); }
+.grpcard .mini-btn { grid-row: 1 / span 2; grid-column: 2; border: 0; border-radius: 10px; background: #eef1ea; padding: 6px 10px; }
+.peercard { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 21; width: min(320px, calc(100% - 24px)); background: rgba(255, 253, 246, .98); border-radius: 20px; padding: 12px; box-shadow: var(--shadow); display: grid; gap: 8px; animation: popin .3s cubic-bezier(.3, 1.5, .5, 1); }
+.peercard .pc-h { display: flex; align-items: center; justify-content: space-between; }
+.peercard .pc-h b { font-family: var(--cute); font-weight: 400; font-size: 18px; }
+.peercard .pc-h button { border: 0; background: #eef1ea; border-radius: 10px; width: 32px; height: 32px; }
+.peercard .pc-wide { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; text-align: left; align-items: center; border: 2px solid #8fb8ff; background: #eef6ff; border-radius: 14px; padding: 10px 12px; }
+.peercard .pc-wide span { grid-row: 1 / span 2; font-size: 26px; } .peercard .pc-wide small { color: var(--muted); font-size: 12px; }
+.peercard .pc-wide.out { border-color: #f2b8a8; background: #fff3ef; }
+.peercard .pc-g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.peercard .pc-g button { border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 8px 4px; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.peercard .pc-g button span { font-size: 22px; }
+@media (max-width: 640px) {
+  .chatlog { bottom: calc(160px + env(safe-area-inset-bottom)); max-width: calc(100% - 90px); }
+  .chatbar { grid-template-columns: minmax(0, 1fr) auto auto; } .chatbar #chatWave { display: none; }
+  .grpcard { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); }
+}

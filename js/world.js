@@ -695,6 +695,7 @@ function create(canvas, opts) {
     if (keys.KeyA || keys.ArrowLeft) ix -= 1; if (keys.KeyD || keys.ArrowRight) ix += 1; if (keys.KeyW || keys.ArrowUp) iz -= 1; if (keys.KeyS || keys.ArrowDown) iz += 1;
     var km = Math.hypot(ix, iz); if (km > 1) { ix /= km; iz /= km; }
     ix += joy.x; iz += joy.y;
+    if (km > 0.05 || joy.mag > 0.08) lastInputT = T;
     var mag = Math.hypot(ix, iz);
     if (mag > 0.08) { moveTarget = null; pendingTalk = null; if (mag > 1) { ix /= mag; iz /= mag; mag = 1; } }
     else if (moveTarget) { var dx = moveTarget.x - player.pos.x, dz = moveTarget.z - player.pos.z, d = Math.hypot(dx, dz); if (d < moveTarget.stopR) { moveTarget = null; ix = iz = mag = 0; } else { mag = Math.min(1, d / 1.2); ix = dx / d * mag; iz = dz / d * mag; } }
@@ -702,6 +703,36 @@ function create(canvas, opts) {
     return { ix: ix, iz: iz, mag: mag, run: !!(keys.ShiftLeft || keys.ShiftRight) || joy.mag > 0.92 };
   }
 
+  /* ---------------- 같이 하기: 다른 친구들 ---------------- */
+  var peers = {}, lastInputT = -99, selfBub = null;
+  function escT(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function dropLabel(L) { var i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); if (L.el.parentNode) L.el.parentNode.removeChild(L.el); }
+  function peerSet(id, d) {
+    var p = peers[id], lk = JSON.stringify(d.look || {});
+    if (!p) {
+      p = peers[id] = { id: id, tx: +d.x || 0, tz: +d.z || 0, th: +d.h || 0, heading: +d.h || 0, lk: '', bubT: 0 };
+      p.obj = new THREE.Group(); p.obj.position.set(p.tx, 0, p.tz); scene.add(p.obj);
+      p.tag = addLabel('', p.obj, 2.4, 'peer'); p.tag.el.addEventListener('click', function (e) { e.stopPropagation(); opts.onPeer && opts.onPeer(id); });
+      p.bub = addLabel('', p.obj, 3.15, 'bubble'); p.bub.hide = true;
+    }
+    if (lk !== p.lk) { if (p.rig) p.obj.remove(p.rig.root); try { p.rig = makePerson(d.look || {}); } catch (e) { p.rig = makePerson({}); } p.obj.add(p.rig.root); p.lk = lk; }
+    var html = '<b>' + escT(d.name || '친구') + '</b>' + (d.sub ? '<small>' + escT(d.sub) + '</small>' : ''); if (p.tag.el._h !== html) { p.tag.el._h = html; p.tag.el.innerHTML = html; }
+    p.tx = +d.x || 0; p.tz = +d.z || 0; p.th = +d.h || 0;
+  }
+  function peerRemove(id) { var p = peers[id]; if (!p) return; scene.remove(p.obj); dropLabel(p.tag); dropLabel(p.bub); delete peers[id]; }
+  function peerSay(id, text) { var p = peers[id]; if (!p) return; p.bub.el.textContent = text; p.bub.hide = false; p.bubT = T + 6; p.bub.el.classList.remove('pop'); void p.bub.el.offsetWidth; p.bub.el.classList.add('pop'); }
+  function selfSay(text) { if (!selfBub) { selfBub = addLabel('', playerObj, 3.15, 'bubble me'); } selfBub.el.textContent = text; selfBub.hide = false; selfBub.t = T + 6; }
+  function updatePeers(dt) {
+    var k = 1 - Math.exp(-9 * dt);
+    Object.keys(peers).forEach(function (id) {
+      var p = peers[id], ox = p.obj.position.x, oz = p.obj.position.z;
+      if (Math.hypot(p.tx - ox, p.tz - oz) > 14) p.obj.position.set(p.tx, 0, p.tz); else { p.obj.position.x += (p.tx - ox) * k; p.obj.position.z += (p.tz - oz) * k; }
+      p.heading = angLerp(p.heading, p.th, k); p.obj.rotation.y = p.heading;
+      var sp = Math.hypot(p.obj.position.x - ox, p.obj.position.z - oz) / Math.max(dt, 1e-3); if (p.rig) animPerson(p.rig, sp, dt);
+      if (!p.bub.hide && T > p.bubT) p.bub.hide = true;
+    });
+    if (selfBub && !selfBub.hide && T > selfBub.t) selfBub.hide = true;
+  }
   /* ---------------- 카메라 ---------------- */
   var camLook = new THREE.Vector3(0, 1, 4), focusPos = null, OFF = new THREE.Vector3(0, 10.5, 13.5);
   var ambient = null, ambA = 0, ambT = 0;
@@ -766,6 +797,7 @@ function create(canvas, opts) {
     if (danceT > 0) { danceT -= dt; danceBeat -= dt; player.heading += dt * 5.5; if (danceBeat <= 0) { danceBeat = 0.55; if (player.rig) player.rig.jump = 0.5; bear.jump = 0.55; burst(player.pos.x + rand(-0.6, 0.6), 2.4, player.pos.z + rand(-0.6, 0.6), ['#b8a1ff', '#ff8fab', '#ffd166', '#8fd3ff'], 4); } }
     playerObj.position.copy(player.pos); playerObj.rotation.y = player.heading;
     if (player.rig) { animPerson(player.rig, sp, dt, riding); var rsc = player.rig.root.scale.y; player.rig.root.position.y = riding ? 0.77 - 0.5 * rsc - 0.06 : 0; player.rig.root.position.z = riding ? -0.2 : 0; }
+    updatePeers(dt);
     if (riding) { var roll = sp * dt / 0.28; rideWheels.forEach(function (w) { w.rotation.x += roll; }); if (rideCrank && player.rig) rideCrank.rotation.x = player.rig.ride || 0; }
     if (pendingTalk && dist2(player.pos, pendingTalk.pos) < pendingTalk.r) { var t = pendingTalk; pendingTalk = null; moveTarget = null; player.vel.set(0, 0, 0); player.heading = Math.atan2(t.pos.x - player.pos.x, t.pos.z - player.pos.z); opts.onTalk && opts.onTalk(t); }
     seeds.forEach(function (s) { if (s.taken) return; s.body.rotation.y += dt * 1.6; s.body.position.y = 0.95 + Math.sin(T * 2.2 + s.seed) * 0.12; s.ring.scale.setScalar(1 + Math.sin(T * 3 + s.seed) * 0.08); if (dist2(player.pos, s.g.position) < 1.3) { takeSeed(s); opts.onSeed && opts.onSeed(s.id); } });
@@ -827,6 +859,12 @@ function create(canvas, opts) {
     focus: function (id) { if (!id) { focusPos = null; return; } if (id === 'me') { focusPos = new THREE.Vector3(player.pos.x, -1.7, player.pos.z + 0.4); return; } var t = targets.find(function (x) { return x.id === id; }); focusPos = t ? new THREE.Vector3(t.pos.x * 0.7 + player.pos.x * 0.3, t.type === 'earth' ? 0.2 : -1.0, t.pos.z * 0.7 + player.pos.z * 0.3 + 1.6) : null; },
     near: function () { return near; },
     pos: function () { return { x: player.pos.x, z: player.pos.z }; },
+    heading: function () { return player.heading; },
+    idleFor: function () { return T - lastInputT; },
+    peerSet: peerSet, peerRemove: peerRemove, peerSay: peerSay, selfSay: selfSay,
+    peerPos: function (id) { var p = peers[id]; return p ? { x: p.obj.position.x, z: p.obj.position.z } : null; },
+    wave: function () { if (player.rig) player.rig.wave = 1.6; },
+    peerWave: function (id) { var p = peers[id]; if (p && p.rig) p.rig.wave = 1.6; },
     debug: function () { return { frames: frameCount, paused: paused, moveTarget: moveTarget, pendingTalk: pendingTalk ? pendingTalk.id : null, targets: targets.map(function (t) { return t.id; }) }; },
     missionOn: function (zone) { activeZone = zone || null; },
     spotDone: function (id, instant) { var s = spots.find(function (x) { return x.id === id; }); if (!s || s.done) return; s.done = true; spotFx(s, instant); },

@@ -52,11 +52,13 @@
   </div>
   <nav class="stamps card" id="stamps" aria-label="마을 도장과 모은 것 (도장을 누르면 데려다줘요)"></nav>
   <div class="tools">
+    <button id="btnChat" class="tool icon" aria-label="채팅 (Enter)" hidden>💬<i class="badge" hidden>0</i></button>
     <button id="btnSound" class="tool icon" aria-label="소리 켜기/끄기">🔊</button>
     <button id="btnMenu" class="tool icon" aria-label="설정">⚙️</button>
   </div>
 </header>
 <div class="fabs" id="fabs" hidden>
+  <button class="fab mp" id="fabMp"><span aria-hidden="true">👥</span><small>같이 하기</small></button>
   <button class="fab rest" id="fabMung"><span aria-hidden="true">🌿</span><small>멍 때리기</small></button>
   <button class="fab calc" id="fabCalc"><span aria-hidden="true">🧮</span><small>탄소 재기</small></button>
   <button class="fab ai" id="fabLearn"><span aria-hidden="true">📚</span><small>AI 배움터</small></button>
@@ -68,6 +70,14 @@
 </div>
 <div id="say" class="saybubble" role="status" hidden></div>
 <div id="effect" class="effect" role="status" hidden></div>
+<div id="chatLogMp" class="chatlog" aria-live="polite"></div>
+<div id="grpCard" class="grpcard" hidden></div>
+<div id="peerCard" class="peercard" role="dialog" aria-label="친구와 함께하기" hidden></div>
+<form id="chatBar" class="chatbar" hidden autocomplete="off">
+  <input id="chatIn" maxlength="60" enterkeyhint="send" placeholder="고운 말로 (최대 60자) · Enter로 보내기" aria-label="채팅 메시지">
+  <button class="primary" type="submit">보내기</button><button type="button" id="chatWave" aria-label="손 흔들기">👋</button><button type="button" id="chatClose" aria-label="채팅 닫기">✕</button>
+  <small>같은 방 친구에게만 보여요 · 이름·전화번호 같은 개인정보는 쓰지 마세요</small>
+</form>
 <div id="hint" class="hint" hidden>👆 땅이나 친구를 누르면 걸어가요 · ⌨️ 방향키로 걷고 스페이스로 점프!</div>
 <button id="btnTalk" class="talk-btn" hidden>💬 <span id="talkLabel">말 걸기</span></button>
 
@@ -97,6 +107,7 @@
 <script src="js/safety.js"></script>
 <script src="js/llm.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/net.js"></script>
 <script src="js/pack.js"></script>
 <script src="packs/green.js"></script>
 <script src="js/world.js"></script>
