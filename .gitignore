@@ -3,3 +3,7 @@
 node_modules/
 .DS_Store
 Thumbs.db
+
+# 개인 연락처가 들어간 제출 서류는 공개 저장소에 올리지 않음
+docs/참가신청서*
+docs/[[]참가신청서[]]*
