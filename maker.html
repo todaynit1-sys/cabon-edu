@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 체험관 메이커</title>
+<meta name="description" content="교육자료를 넣으면 AI가 초등~고등 학생용 3D 체험관(미션·대사·학년별 문제·수업·실천 카드)을 만들고, 담당자가 검토·승인해 발행하는 도구">
+<meta name="theme-color" content="#2f7d5b">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" crossorigin media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/maker.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">🛠️</span><div><h1>AI 체험관 메이커</h1><p>교육자료를 넣으면 초등~고등 학생용 3D 체험관이 만들어져요 · 담당자가 검토·승인한 것만 발행</p></div></div>
+  <div class="top-right"><button class="pill" id="aiPill">AI 연결</button><a class="pill ghost" href="index.html" target="_blank">🌏 체험관 열기</a></div>
+</header>
+
+<main>
+<ol class="steps" id="steps">
+  <li class="on" data-step="1"><b>1</b> 자료 넣기</li><li data-step="2"><b>2</b> AI 생성</li><li data-step="3"><b>3</b> 검토·승인</li><li data-step="4"><b>4</b> 발행</li>
+</ol>
+
+<section class="card" id="s1">
+  <h2>1. 교육자료 넣기</h2>
+  <div class="grid2">
+    <label>체험관 이름<input id="inTitle" placeholder="예: 초록별 마을"></label>
+    <label>부제<input id="inSub" placeholder="예: 지구 열 내리기 대작전"></label>
+    <label>기관명<input id="inOrg" placeholder="예: 수도권대기환경청"></label>
+    <label>주제<input id="inTopic" placeholder="예: 탄소중립 생활 실천"></label>
+  </div>
+  <label>교육자료 본문 <small>(한글·PDF는 글을 복사해 붙여 넣으세요 · 개인정보 없는 공개 자료만)</small>
+    <textarea id="inSrc" rows="12" placeholder="여기에 교육자료 글을 붙여 넣으세요. 2,000~8,000자 정도가 알맞아요."></textarea></label>
+  <div class="row">
+    <label class="btn ghost">📂 텍스트 파일 열기<input type="file" id="inFile" accept=".txt,.md,text/plain" hidden></label>
+    <button class="btn ghost" id="btnSampleCarbon">샘플: 탄소중립 생활 실천</button>
+    <button class="btn ghost" id="btnSampleWater">샘플: 물 절약</button>
+    <span class="count" id="srcCount">0자</span>
+  </div>
+  <details class="opts" open><summary>생성 옵션</summary>
+    <div class="row wrap">
+      <span>학년 수준:</span>
+      <label class="chk"><input type="checkbox" id="lv1" checked> 초등 저학년</label>
+      <label class="chk"><input type="checkbox" id="lv2" checked> 초등 고학년</label>
+      <label class="chk"><input type="checkbox" id="lv3" checked> 중학생</label><label class="chk"><input type="checkbox" id="lv4" checked> 고등학생</label>
+    </div>
+    <div class="row wrap">
+      <label class="chk"><input type="checkbox" id="optCross" checked> AI 교차 검토 (문제를 다른 호출로 한 번 더 검사)</label>
+      <label class="chk"><input type="checkbox" id="optWrong" checked> 오답별 다시 설명 생성</label>
+      <label class="chk"><input type="checkbox" id="optLessons" checked> 학년별 수업 생성</label>
+      <label class="chk">마을당 문제 <input type="number" id="optPer" value="6" min="3" max="10" style="width:60px"> 개</label>
+    </div>
+    <p class="fine">호출 수(대략): 카드 1~3 + 설계 1 + 미션 4 + 문제 4×학년 + 교차 4 + 오답 4 + 수업 4×학년 + 실천 1. 클라우드 모델이면 2~4분, 작은 로컬 모델이면 더 오래 걸려요.</p>
+  </details>
+  <div class="row actions">
+    <button class="btn primary big" id="btnRun">✨ AI로 체험관 만들기</button>
+    <label class="btn ghost">🎞️ 기록 재생 (AI 없이 시연)<input type="file" id="inReplay" accept="application/json,.json" hidden></label>
+    <label class="btn ghost">📦 만든 팩 불러와 검토<input type="file" id="inPack" accept="application/json,.json" hidden></label>
+    <select id="selLocal" class="btn ghost"><option value="">이 기기에 저장된 팩…</option></select>
+  </div>
+</section>
+
+<section class="card" id="s2" hidden>
+  <h2>2. AI 생성 진행 <small id="runMeta"></small></h2>
+  <table class="stages" id="stageTable"><thead><tr><th>단계</th><th>상태</th><th>통과 / 요청</th><th>걸러짐</th><th>메모</th></tr></thead><tbody></tbody></table>
+  <div class="row"><button class="btn danger ghost" id="btnAbort">중단</button><button class="btn ghost" id="btnSaveLog" hidden>🎞️ 생성 기록 저장(JSON)</button><span class="fine" id="runNote"></span></div>
+  <div class="dropfeed" id="dropFeed"></div>
+</section>
+
+<section class="card" id="s3" hidden>
+  <h2>3. 검토·승인 <small id="revMeta"></small></h2>
+  <p class="fine">AI가 만든 글은 모두 고칠 수 있어요. 탭마다 내용을 확인하고 <b>검토 완료</b>를 누르세요. 걸러진 항목은 왜 걸러졌는지 이유와 함께 보여 줍니다.</p>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="tabbody" id="tabBody"></div>
+  <div class="row actions"><span class="fine" id="approveCount"></span><button class="btn ghost" id="btnPreview">👀 3D 미리보기</button><button class="btn primary big" id="btnToPublish">발행 단계로 ▶</button></div>
+</section>
+
+<section class="card" id="s4" hidden>
+  <h2>4. 발행</h2>
+  <div class="grid2">
+    <label>팩 id<input id="pubId"></label>
+    <label>체험관 이름<input id="pubTitle"></label>
+  </div>
+  <div class="row actions">
+    <button class="btn primary big" id="btnPublish">💾 이 기기에 저장하고 체험관 열기</button>
+    <button class="btn ghost" id="btnCopyLink">🔗 링크 복사 (팩이 링크에 담겨요)</button>
+    <button class="btn ghost" id="btnExport">📄 팩 JSON 내보내기</button>
+  </div>
+  <div class="row"><div id="qr"></div><p class="fine" id="pubNote"></p></div>
+</section>
+</main>
+
+<div id="modal" class="modal" hidden><div class="mcard" id="mcard"></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/text.js"></script>
+<script src="js/safety.js"></script>
+<script src="js/pack.js"></script>
+<script src="packs/green.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/gen.js"></script>
+<script src="js/samples.js"></script>
+<script src="js/maker.js"></script>
+</body>
+</html>

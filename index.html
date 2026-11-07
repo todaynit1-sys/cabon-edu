@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>초록별 퀴즈 마을 — 지구 열 내리기 대작전</title>
-<meta name="description" content="3D 마을을 걸으며 AI 친구들과 탄소중립 퀴즈를 풀고, 아기 지구의 열을 내리는 어린이 환경교육 앱">
+<title>초록별 마을 — 체험관</title>
+<meta name="description" content="AI 체험관 메이커로 만든 초등~고등 학생용 3D 체험관. 마을 친구들과 직접 체험하며 배워요.">
 <meta name="theme-color" content="#7fcd6b">
-<meta property="og:title" content="초록별 퀴즈 마을 — 지구 열 내리기 대작전">
-<meta property="og:description" content="퀴즈를 맞히면 탄소 구름이 나비로! AI 친구와 함께 배우는 어린이 탄소중립">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" crossorigin media="print" onload="this.media='all'">
@@ -17,7 +15,7 @@
 <link rel="stylesheet" href="css/fun.css">
 </head>
 <body>
-<canvas id="c" aria-label="초록별 퀴즈 마을 3D 화면. 친구를 누르면 걸어가서 이야기해요."></canvas>
+<canvas id="c" aria-label="체험관 3D 화면. 친구를 누르면 걸어가서 이야기해요."></canvas>
 <div id="labels" aria-hidden="true"></div>
 
 <header id="hud" hidden>
@@ -25,8 +23,9 @@
     <div class="fever card hot" aria-live="polite">
       <div class="fever-face" id="feverFace">🥵</div>
       <div class="fever-body">
-        <div class="fever-title">지구 열 <b id="feverText">아주 뜨거워요</b></div>
+        <div class="fever-title"><span id="meterName">지구 열</span> <b id="feverText">아주 뜨거워요</b><em class="fever-delta" id="feverDelta" hidden></em></div>
         <div class="fever-bar"><i id="feverBar" style="width:100%"></i></div>
+        <small class="fever-sub" id="feverSub"></small>
       </div>
     </div>
     <button class="quest card" id="quest" aria-label="다음 할 일 (누르면 데려다줘요)">
@@ -37,32 +36,33 @@
   </div>
   <nav class="stamps card" id="stamps" aria-label="마을 도장과 모은 것 (도장을 누르면 데려다줘요)"></nav>
   <div class="tools">
-    <button id="btnAI" class="tool aichip" hidden>✨ AI 켜기</button>
     <button id="btnSound" class="tool icon" aria-label="소리 켜기/끄기">🔊</button>
     <button id="btnMenu" class="tool icon" aria-label="설정">⚙️</button>
   </div>
 </header>
 <div class="fabs" id="fabs" hidden>
-  <button class="fab ai" id="fabAI"><span aria-hidden="true">🤖</span><small>AI 학습실</small></button>
-  <button class="fab bear" id="fabBear"><span aria-hidden="true">🐻‍❄️</span><small>얼음이</small></button>
+  <button class="fab ai" id="fabLearn"><span aria-hidden="true">📚</span><small>배움터</small></button>
+  <button class="fab bear" id="fabBear"><span aria-hidden="true">🐻‍❄️</span><small id="fabBearName">얼음이</small></button>
   <button class="fab wear" id="fabWear"><span aria-hidden="true">👕</span><small>꾸미기</small></button>
   <button class="fab photo" id="fabPhoto"><span aria-hidden="true">📸</span><small>사진</small></button>
   <button class="fab jump" id="fabJump"><span aria-hidden="true">⬆️</span><small>점프</small></button>
 </div>
 <div id="say" class="saybubble" role="status" hidden></div>
+<div id="effect" class="effect" role="status" hidden></div>
 <div id="hint" class="hint" hidden>👆 땅이나 친구를 누르면 걸어가요 · ⌨️ 방향키로 걷고 스페이스로 점프!</div>
 <button id="btnTalk" class="talk-btn" hidden>💬 <span id="talkLabel">말 걸기</span></button>
 
 <section id="start" class="screen">
   <div class="start-card">
     <div class="logo" aria-hidden="true"><span class="globe">🌏</span><span class="pack">🧊</span></div>
-    <h1>초록별 퀴즈 마을</h1>
-    <p class="sub">지구 열 내리기 대작전</p>
-    <p class="lead">아기 지구 <b>동글이</b>가 온실가스 담요 때문에 열이 나요!<br>마을 친구들과 직접 체험하며 열을 내려 주세요.</p>
-    <div class="step"><h2>몇 학년이에요?</h2><div class="grades" id="grades"></div></div>
-    <div class="step"><h2>내 캐릭터를 골라요</h2><div class="avatars" id="avatars"></div></div>
-    <button id="btnStart" class="big-btn">퀴즈 마을로 출발! 🚀</button>
-    <button id="aiPill" class="ai-pill"></button>
+    <h1 id="stTitle">체험관</h1>
+    <p class="sub" id="stSub"></p>
+    <p class="lead" id="stLead"></p>
+    <div class="step"><h2>나는 지금</h2><div class="grades" id="grades"></div></div>
+    <div class="step"><h2>내 캐릭터</h2><div class="presets" id="avatars"></div><button class="custom-btn" id="btnCustom" type="button">✏️ 직접 꾸미기 <small>나이 · 성별 · 피부 · 눈 · 입 · 머리 · 옷 · 소품</small></button></div>
+    <button id="btnStart" class="big-btn">체험관으로 출발! 🚀</button>
+    <p class="made" id="stMade"></p>
+    <div class="start-links"><button class="linkbtn" id="btnPacks">다른 체험관 열기</button><a class="linkbtn" href="maker.html">담당자용: AI 체험관 메이커</a></div>
   </div>
 </section>
 
@@ -71,11 +71,11 @@
 <div id="nogl" class="nogl" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="js/config.js"></script>
-<script src="js/llm.js"></script>
-<script src="js/data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="js/text.js"></script>
 <script src="js/safety.js"></script>
-<script src="js/kidai.js"></script>
+<script src="js/pack.js"></script>
+<script src="packs/green.js"></script>
 <script src="js/world.js"></script>
 <script src="js/minigames.js"></script>
 <script src="js/game.js"></script>
