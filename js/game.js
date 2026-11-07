@@ -42,8 +42,14 @@ var SFX = (function () {
   var ctx = null, master = null, muted = pref('gq.mute', '0') === '1';
   function init() { if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; } var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; ctx = new AC(); master = ctx.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ctx.destination); }
   function tone(f, o) { if (!ctx || muted) return; o = o || {}; var t = ctx.currentTime + (o.delay || 0), osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t); osc.frequency.exponentialRampToValueAtTime(Math.max(30, o.f2 || f), t + (o.dur || 0.12)); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol || 0.12, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + (o.dur || 0.12)); osc.connect(g).connect(master); osc.start(t); osc.stop(t + (o.dur || 0.12) + 0.05); }
-  var bgmOn = false, bgmTimer = 0, step = 0, CH = [[523, 659, 784], [440, 523, 659], [349, 440, 523], [392, 494, 587]], MEL = [784, 659, 784, 880, 784, 659, 587, 659, 523, 587, 659, 784, 698, 659, 587, 523];
-  function bgmTick() { if (!bgmOn || !ctx || muted || document.hidden) return; var c = CH[Math.floor(step / 8) % CH.length]; if (step % 8 === 0) c.forEach(function (f) { tone(f / 2, { dur: 2.2, type: 'sine', vol: 0.018 }); }); if (step % 2 === 0) tone(MEL[(step / 2) % MEL.length], { dur: 0.5, type: 'triangle', vol: 0.028 }); step++; }
+  /* 배경음악: 잔잔한 패드 화음 + 오르골 같은 음 + 가끔 새소리 (C–Am–F–G, 한 마디 4.8초) */
+  var bgmOn = false, bgmTimer = 0, bgmBus = null, nextBar = 0, bar = 0, BAR = 4.8;
+  var PROG = [[261.6, 329.6, 392.0], [220.0, 261.6, 329.6], [174.6, 220.0, 261.6], [196.0, 246.9, 293.7]];
+  function bus() { if (bgmBus) return bgmBus; var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; var g = ctx.createGain(); g.gain.value = 0.9; lp.connect(g).connect(master); bgmBus = lp; return lp; }
+  function pad(fq, t, dur) { var o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = fq; o2.frequency.value = fq * 1.003; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.016, t + 1.5); g.gain.linearRampToValueAtTime(0.012, t + dur - 1.2); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6); o.connect(g); o2.connect(g); g.connect(bus()); o.start(t); o2.start(t); o.stop(t + dur + 0.8); o2.stop(t + dur + 0.8); }
+  function pluck(fq, t, v) { var o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = fq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.026, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8); o.connect(g).connect(bus()); o.start(t); o.stop(t + 1.9); }
+  function chirp(t) { [0, 0.16].forEach(function (d) { var o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(2600, t + d); o.frequency.exponentialRampToValueAtTime(3600, t + d + 0.07); g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.006, t + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.09); o.connect(g).connect(master); o.start(t + d); o.stop(t + d + 0.12); }); }
+  function bgmTick() { if (!bgmOn || !ctx || muted || document.hidden) { if (ctx) nextBar = Math.max(nextBar, ctx.currentTime + 0.2); return; } if (nextBar < ctx.currentTime) nextBar = ctx.currentTime + 0.1; while (nextBar < ctx.currentTime + 1.2) { var c = PROG[bar % PROG.length], t = nextBar; c.forEach(function (fq) { pad(fq / 2, t, BAR); }); for (var k = 0; k < 4; k++) if (k === 0 || Math.random() < 0.7) pluck(c[Math.floor(Math.random() * 3)] * (Math.random() < 0.3 ? 4 : 2), t + k * BAR / 4 + Math.random() * 0.05, k === 0 ? 0.03 : 0.02); if (Math.random() < 0.18) chirp(t + 1 + Math.random() * 2.5); bar++; nextBar += BAR; } }
   return {
     init: init,
     click: function () { tone(700, { dur: 0.06, vol: 0.07, type: 'triangle' }); },
@@ -54,7 +60,7 @@ var SFX = (function () {
     boing: function () { tone(220, { f2: 520, dur: 0.18, type: 'sine', vol: 0.1 }); },
     seed: function () { [880, 1175, 1568].forEach(function (f, i) { tone(f, { dur: 0.12, delay: i * 0.06, type: 'triangle', vol: 0.1 }); }); },
     dance: function () { [523, 587, 659, 784, 659, 587, 523, 659, 784, 880, 784, 659].forEach(function (f, i) { tone(f, { dur: 0.18, delay: i * 0.18, type: 'square', vol: 0.05 }); }); },
-    bgm: function (v) { if (v === undefined) return bgmOn; bgmOn = !!v; clearInterval(bgmTimer); if (bgmOn) bgmTimer = setInterval(bgmTick, 330); },
+    bgm: function (v) { if (v === undefined) return bgmOn; bgmOn = !!v; clearInterval(bgmTimer); if (bgmOn) { if (ctx) nextBar = ctx.currentTime + 0.1; bgmTick(); bgmTimer = setInterval(bgmTick, 400); } },
     muted: function () { return muted; },
     setMuted: function (m) { muted = m; setPref('gq.mute', m ? '1' : '0'); if (master) master.gain.value = m ? 0 : 0.5; }
   };

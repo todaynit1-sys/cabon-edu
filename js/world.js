@@ -544,7 +544,9 @@ function create(canvas, opts) {
 
   /* 들고 다니는 물건 · 타는 탈것 */
   var carryG = new THREE.Group(); carryG.position.y = 2.25; var carryMesh = null;
-  var rideG = new THREE.Group(); rideG.visible = false; var riding = false, rideWheels = [], rideCrank = null;
+  var rideG = new THREE.Group(); rideG.visible = false; var riding = false, rideWanted = false, rideWheels = [], rideCrank = null;
+  var RIDE_Z = (function () { var z = zonesMeta.find(function (m) { return m.template === 'ride'; }); return z ? ZPOS[z.id] : null; })();
+  function inRideZone() { return !!RIDE_Z && Math.hypot(player.pos.x - RIDE_Z[0], player.pos.z - RIDE_Z[1]) < 13; }
   (function () { // 자전거: 바퀴(살이 보이게 굴러감) · 프레임 · 안장 · 핸들 · 페달
     var FR = '#3fae6b', DK = '#2f3437', SEAT = new THREE.Vector3(0, 0.74, -0.2), BB = new THREE.Vector3(0, 0.33, 0.02), HEAD = new THREE.Vector3(0, 0.84, 0.3), RA = new THREE.Vector3(0, 0.3, -0.44), FA = new THREE.Vector3(0, 0.3, 0.44);
     function bar(a, b, t, c) { var len = a.distanceTo(b), m = new THREE.Mesh(new THREE.BoxGeometry(t, t, len), mat(c)); m.position.copy(a).add(b).multiplyScalar(0.5); m.lookAt(b); m.castShadow = true; rideG.add(m); return m; }
@@ -696,6 +698,7 @@ function create(canvas, opts) {
   function frame() {
     var dt = Math.min(0.05, clock.getDelta()); T += dt; frameCount++; updateTweens(dt);
     var inp = paused ? { ix: 0, iz: 0, mag: 0 } : readInput();
+    if (rideWanted) { var inZ = inRideZone(); if (inZ !== riding) { riding = inZ; rideG.visible = inZ; } }
     var top = (inp.run ? 7.6 : 5.0) * (riding ? 1.55 : 1), kk = 1 - Math.exp(-(inp.mag > 0.05 ? 11 : 15) * dt);
     player.vel.x += (inp.ix * top - player.vel.x) * kk; player.vel.z += (inp.iz * top - player.vel.z) * kk;
     var px = player.pos.x, pz = player.pos.z;
@@ -775,7 +778,7 @@ function create(canvas, opts) {
     },
     carry: function (id) { if (carryMesh) { carryG.remove(carryMesh); carryMesh = null; } if (!id) return; var s = spots.find(function (x) { return x.id === id; }); if (!s) return; if (s.mesh) s.mesh.visible = false; s.carried = true; carryMesh = makeTrash(TRASH_KINDS.indexOf(s.bin) >= 0 ? s.bin : 'other', carryG); carryMesh.scale.setScalar(1.3); },
     dropCarried: function (id) { var s = spots.find(function (x) { return x.id === id; }); if (s) { s.carried = false; if (s.mesh) s.mesh.visible = true; } if (carryMesh) { carryG.remove(carryMesh); carryMesh = null; } },
-    bike: function (onB) { riding = !!onB; rideG.visible = riding; },
+    bike: function (onB) { rideWanted = !!onB; riding = rideWanted && inRideZone(); rideG.visible = riding; },
     binsBurst: function (zone) { var b = spots.find(function (s) { return s.zone === zone && s.kind === 'bins'; }); if (b) burst(b.pos.x, 1.4, b.pos.z, ['#7fcd6b', '#ffd166', '#8fd3ff'], 16); },
     snapshot: function () { renderer.render(scene, camera); try { return canvas.toDataURL('image/jpeg', 0.92); } catch (e) { return ''; } }
   };
