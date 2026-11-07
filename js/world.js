@@ -558,15 +558,15 @@ function create(canvas, opts) {
     cyl(0.45, 0.55, 3.4, '#bba998', 1.9, 4.9, -1.1, g, 12);
     cyl(0.47, 0.47, 0.35, '#e8735a', 1.9, 5.9, -1.1, g, 12);
     var smoke = addEmitter(function (v) { var w = local(g, 1.9, -1.1); v.set(w.x, 6.8, w.z); }, 2.4, 1.3);
-    var bins = new THREE.Group(); g.add(bins); bins.position.set(1.4, 0, 3.1);
-    [['#3d8bd9', '종이'], ['#f2b93b', '플라'], ['#5cb85c', '유리'], ['#9aa3ad', '캔']].forEach(function (b, i) {
-      var x = (i - 1.5) * 0.95; box(0.8, 0.95, 0.8, b[0], x, 0.48, 0, bins); box(0.88, 0.12, 0.88, shade(b[0], 0.85), x, 1.0, 0, bins);
-      var l = textPlane(b[1], { w: 0.6, h: 0.3, bg: '#ffffff', fg: '#33424a' }); l.position.set(x, 0.55, 0.41); bins.add(l);
+    var bins = new THREE.Group(); g.add(bins); bins.position.set(1.6, 0, 3.3); // 분리수거함은 처음부터 있음 (분리배출 체험)
+    [['#3d8bd9', '종이'], ['#8fb8de', '종이팩'], ['#f2b93b', '플라'], ['#9aa3ad', '캔'], ['#5cb85c', '유리']].forEach(function (b, i) {
+      var x = (i - 2) * 0.86; box(0.74, 0.95, 0.74, b[0], x, 0.48, 0, bins); box(0.8, 0.12, 0.8, shade(b[0], 0.85), x, 1.0, 0, bins);
+      var l = textPlane(b[1], { w: 0.64, h: 0.3, bg: '#ffffff', fg: '#33424a' }); l.position.set(x, 0.55, 0.38); bins.add(l);
     });
-    bins.visible = false;
+    var bw = local(g, 1.6, 3.3); addCircle(bw.x, bw.z, 1.3);
     colLocal(g, 0, 0, 3.1);
     signFor(g, '뚝딱 재활용 공장', '#2f86c4', -0.4, 2.3);
-    ZONES.recycle = { g: g, clear: function (instant) { smoke.on = false; popIn(bins, 0.4, instant); var w = local(g, 1.4, 3.1); addCircle(w.x, w.z, 1.4); }, update: function () {} };
+    ZONES.recycle = { g: g, clear: function () { smoke.on = false; }, update: function () {} };
   })();
 
   /* 쑥쑥 숲 */
@@ -576,10 +576,6 @@ function create(canvas, opts) {
     var patch = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.06, 32), patchMat); patch.position.set(0, 0.03, -0.5); patch.receiveShadow = true; g.add(patch);
     tree(-2.6, -1.6, 1.15, 0, g, true); tree(2.4, -2.0, 1.0, 1, g, true);
     [[-1, 0.4], [1.2, 0.6], [0.2, -2.4]].forEach(function (s) { cyl(0.36, 0.42, 0.45, '#8a5a35', s[0], 0.22, s[1], g, 10); cyl(0.33, 0.33, 0.02, '#e0b57d', s[0], 0.46, s[1], g, 10); });
-    var grow = [];
-    [[-0.6, -0.9, 1.25, 0], [1.6, 0.9, 0.9, 1], [-2.2, 1.2, 0.95, 0], [0.4, -3.2, 1.1, 1], [3.0, -0.2, 0.85, 0], [-3.4, -0.2, 0.8, 1]].forEach(function (t) {
-      var tr = tree(t[0], t[1], t[2], t[3], g, true); tr.visible = false; grow.push({ tr: tr, x: t[0], z: t[1], s: t[2] });
-    });
     var flowersG = new THREE.Group(); g.add(flowersG);
     for (var i = 0; i < 14; i++) { var a = rand(0, Math.PI * 2), r = rand(1, 4.2); cyl(0.03, 0.03, 0.3, '#4f9f52', Math.cos(a) * r, 0.15, Math.sin(a) * r - 0.5, flowersG, 4); sph(0.12, FCOL[i % FCOL.length], Math.cos(a) * r, 0.34, Math.sin(a) * r - 0.5, flowersG); }
     flowersG.visible = false;
@@ -588,8 +584,7 @@ function create(canvas, opts) {
     var ps = textPlane('쑥쑥 숲', { w: 2.0, h: 0.7, bg: '#3e9b4f' }); ps.position.set(0, 2.2, 0.12); post.add(ps);
     colLocal(g, -2.6, -1.6, 0.55); colLocal(g, 2.4, -2.0, 0.5);
     ZONES.forest = { g: g, clear: function (instant) {
-      grow.forEach(function (t, i) { popIn(t.tr, 0.25 * i, instant); colLocal(g, t.x, t.z, 0.45 * t.s); });
-      popIn(flowersG, 1.4, instant);
+      popIn(flowersG, 0.6, instant); // 나무는 체험(나무 심기)에서 자라고, 끝나면 꽃이 핌
       if (instant || reduce) patchMat.color.set('#79c867'); else tween(1.6, function (k) { patchMat.color.lerpColors(new THREE.Color('#b9a074'), new THREE.Color('#79c867'), k); });
     }, update: function () {} };
   })();
@@ -637,7 +632,8 @@ function create(canvas, opts) {
     var col = addCircle(fx, fz, 0.55);
     var t = addTarget({ id: z.id, type: 'friend', zone: z.id, name: z.friend, r: 2.6 }, c.root, 1.1, 1.0);
     t.pos = c.root.position; t.critter = c;
-    t.label = addLabel('<b>' + z.friend + '</b><small>' + z.topic + ' 퀴즈</small><i class="stamp">✓</i>', c.root, 2.25, 'friend');
+    var MS = (window.GQ_MISSIONS || {})[z.id];
+    t.label = addLabel('<b>' + z.friend + '</b><small>' + (MS ? MS.icon + ' ' + MS.title + ' 체험' : z.topic) + '</small><i class="stamp">✓</i>', c.root, 2.25, 'friend');
     ZONES[z.id].friend = t;
     ZONES[z.id].smogs = [];
     for (var k = 0; k < 5; k++) {
@@ -646,9 +642,163 @@ function create(canvas, opts) {
     }
   });
 
+  /* =========================================================
+     마을 체험 — 3D 마을 안에서 직접 해 보는 미션 물건들
+     (내용·대사는 data.js의 GQ_MISSIONS, 여기는 모양과 움직임)
+     ========================================================= */
+  var spots = [], spotHits = [], activeZone = null;
+  var markerMat = new THREE.MeshBasicMaterial({ color: '#ffd166' });
+  var ringMarkMat = new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.6, depthWrite: false });
+  function addSpot(o) {
+    var s = Object.assign({ done: false, r: 2.0, auto: false, h: 1.6 }, o);
+    s.pos = new THREE.Vector3(o.x, 0, o.z);
+    s.marker = new THREE.Group(); s.marker.position.set(o.x, s.h + 0.9, o.z); scene.add(s.marker);
+    var arrow = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.45, 4), markerMat); arrow.rotation.x = Math.PI; s.marker.add(arrow);
+    s.ringMark = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.86, 28), ringMarkMat); s.ringMark.rotation.x = -Math.PI / 2; s.ringMark.position.set(o.x, 0.06, o.z); scene.add(s.ringMark);
+    s.marker.visible = false; s.ringMark.visible = false;
+    var hit = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 6), hitMat); hit.position.set(o.x, 0.8, o.z); scene.add(hit);
+    hit.userData.spot = s; spotHits.push(hit);
+    spots.push(s); return s;
+  }
+  function spotTarget(s) { return { id: s.id, type: 'spot', zone: s.zone, kind: s.kind, pos: s.pos, r: s.r, auto: s.auto }; }
+  function zoneSpots(z) { return spots.filter(function (s) { return s.zone === z; }); }
+  function currentSpots() { // 지금 해 볼 수 있는 물건 (자전거 고리는 순서대로 하나씩)
+    if (!activeZone) return [];
+    var list = zoneSpots(activeZone).filter(function (s) { return !s.done && !s.carried; });
+    if (activeZone === 'road') { var bike = list.find(function (s) { return s.kind === 'bike'; }); if (bike) return [bike]; var r = list.find(function (s) { return s.kind === 'ring'; }); return r ? [r] : []; }
+    return list;
+  }
+  var on = function (m, glow) { m.emissiveIntensity = glow; };
+
+  /* 반짝 에너지 집: 마당 거실 (전등 · TV · 충전기 · 에어컨 · 냉장고) */
+  (function () {
+    var g = ZONES.home.g;
+    var mk = function (lx, lz) { var o = new THREE.Group(); o.position.set(lx, 0, lz); g.add(o); return o; };
+    var rugs = [[-3.0, 3.8, '#ffd9a8'], [3.3, 3.5, '#cfe7f8']];
+    rugs.forEach(function (r) { var rug = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.04, 28), mat(r[2])); rug.position.set(r[0], 0.02, r[1]); rug.receiveShadow = true; g.add(rug); });
+    // 전등
+    var lamp = mk(-3.9, 2.9); cyl(0.2, 0.26, 0.08, '#6b5d7a', 0, 0.04, 0, lamp, 12); cyl(0.035, 0.035, 1.5, '#6b5d7a', 0, 0.8, 0, lamp, 6);
+    var lampMat = new THREE.MeshLambertMaterial({ color: '#fff3b0', emissive: '#ffd34d', emissiveIntensity: 1 });
+    var shadeM = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.36, 0.38, 14, 1, true), lampMat); shadeM.position.y = 1.6; shadeM.material.side = THREE.DoubleSide; lamp.add(shadeM);
+    var lampL = new THREE.PointLight('#ffd34d', 1.2, 4); lampL.position.y = 1.5; lamp.add(lampL);
+    // TV
+    var tv = mk(-2.3, 4.7); box(1.4, 0.5, 0.5, '#a8693f', 0, 0.25, 0, tv); box(1.25, 0.78, 0.08, '#2b2b30', 0, 0.98, 0, tv);
+    var tvMat = new THREE.MeshLambertMaterial({ color: '#8fd3ff', emissive: '#5fb8ff', emissiveIntensity: 1 });
+    var scr = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.64), tvMat); scr.position.set(0, 0.98, 0.045); tv.add(scr);
+    // 충전기 (멀티탭 + 플러그 + 휴대폰)
+    var ch = mk(1.7, 5.0); box(0.7, 0.45, 0.5, '#c58b55', 0, 0.22, 0, ch); box(0.5, 0.07, 0.15, '#f4f4f0', 0, 0.48, 0, ch);
+    var plug = new THREE.Group(); plug.position.set(-0.12, 0.54, 0); ch.add(plug); box(0.1, 0.1, 0.1, '#ffffff', 0, 0, 0, plug); cyl(0.015, 0.015, 0.4, '#2b2b30', 0.15, 0.02, 0, plug, 5).rotation.z = Math.PI / 2;
+    var phMat = new THREE.MeshLambertMaterial({ color: '#c9f0ff', emissive: '#7fdcff', emissiveIntensity: 1 });
+    box(0.18, 0.03, 0.32, '#2b2b30', 0.2, 0.48, 0.05, ch); var ph = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.26), phMat); ph.rotation.x = -Math.PI / 2; ph.position.set(0.2, 0.5, 0.05); ch.add(ph);
+    // 에어컨 (18도 → 26도)
+    var ac = mk(3.4, 4.3); cyl(0.05, 0.05, 1.6, '#7d93a6', -0.45, 0.8, 0, ac, 6); cyl(0.05, 0.05, 1.6, '#7d93a6', 0.45, 0.8, 0, ac, 6);
+    box(1.1, 0.4, 0.3, '#ffffff', 0, 1.7, 0, ac);
+    var t18 = textPlane('18℃', { w: 0.5, h: 0.22, bg: '#2f86c4' }); t18.position.set(0.28, 1.72, 0.16); ac.add(t18);
+    var t26 = textPlane('26℃', { w: 0.5, h: 0.22, bg: '#2f7d5b' }); t26.position.set(0.28, 1.72, 0.16); t26.visible = false; ac.add(t26);
+    var coldE = addEmitter(function (v) { var w = local(g, 3.4, 4.6); v.set(w.x, 1.35, w.z); }, 1.2, 0.25);
+    // 냉장고 (문 열림 → 닫힘)
+    var fr = mk(4.2, 2.5); box(0.8, 1.6, 0.7, '#f4f4f0', 0, 0.8, 0, fr);
+    var frMat = new THREE.MeshLambertMaterial({ color: '#e9f7ff', emissive: '#bfe9ff', emissiveIntensity: 0.9 });
+    var inner = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 1.4), frMat); inner.position.set(0, 0.8, 0.352); fr.add(inner);
+    var hinge = new THREE.Group(); hinge.position.set(-0.4, 0, 0.36); fr.add(hinge);
+    var door = box(0.8, 1.56, 0.07, '#ffffff', 0.4, 0.8, 0, hinge); box(0.04, 0.4, 0.06, '#9aa3ad', 0.72, 0.95, 0.06, hinge);
+    hinge.rotation.y = -1.3;
+    [lamp, tv, ch, ac, fr].forEach(function (o) { var w = local(g, o.position.x, o.position.z); addCircle(w.x, w.z, 0.45); });
+    var defs = [['h-lamp', lamp, function () { on(lampMat, 0.05); lampL.intensity = 0; }],
+      ['h-tv', tv, function () { on(tvMat, 0); tvMat.color.set('#1d1d22'); }],
+      ['h-charger', ch, function (inst) { on(phMat, 0); phMat.color.set('#2b2b30'); if (inst) { plug.position.set(-0.1, 0.9, 0.35); return; } tween(0.5, function (k) { plug.position.y = 0.54 + k * 0.36; plug.position.z = k * 0.35; }); }],
+      ['h-ac', ac, function () { t18.visible = false; t26.visible = true; coldE.on = false; }],
+      ['h-fridge', fr, function (inst) { on(frMat, 0); if (inst) { hinge.rotation.y = 0; return; } tween(0.5, function (k) { hinge.rotation.y = -1.3 * (1 - k); }); }]];
+    defs.forEach(function (d) {
+      var w = local(g, d[1].position.x, d[1].position.z);
+      addSpot({ id: d[0], zone: 'home', kind: 'device', x: w.x, z: w.z, r: 1.9, h: 1.7, done: false, fx: d[2] });
+    });
+  })();
+
+  /* 뚝딱 재활용 공장: 섬에 떨어진 쓰레기 5개 + 분리수거함 */
+  function makeTrash(kind, parent) {
+    var g2 = new THREE.Group(); (parent || scene).add(g2);
+    if (kind === 'paper') { var p = box(0.6, 0.06, 0.45, '#e9e4d8', 0, 0.05, 0, g2); p.rotation.y = 0.3; box(0.5, 0.065, 0.06, '#9aa3ad', 0, 0.06, -0.1, g2); box(0.5, 0.065, 0.06, '#9aa3ad', 0, 0.06, 0.08, g2); }
+    else if (kind === 'pack') { box(0.3, 0.42, 0.3, '#ffffff', 0, 0.21, 0, g2); box(0.31, 0.1, 0.31, '#5fa8e8', 0, 0.3, 0, g2); var rf = cone(0.24, 0.18, '#ffffff', 0, 0.5, 0, g2, 4); rf.rotation.y = Math.PI / 4; }
+    else if (kind === 'plastic') { var bt = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.5, 12), new THREE.MeshLambertMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.8 })); bt.position.y = 0.25; g2.add(bt); cyl(0.05, 0.05, 0.08, '#4aa3df', 0, 0.54, 0, g2, 8); g2.rotation.z = Math.PI / 2; g2.position.y = 0.13; }
+    else if (kind === 'can') { cyl(0.12, 0.12, 0.32, '#c9ccd1', 0, 0.16, 0, g2, 14); cyl(0.125, 0.125, 0.12, '#e5484d', 0, 0.17, 0, g2, 14); }
+    else if (kind === 'glass') { cyl(0.13, 0.14, 0.36, '#5cb85c', 0, 0.18, 0, g2, 12); cyl(0.05, 0.08, 0.18, '#5cb85c', 0, 0.45, 0, g2, 10); }
+    g2.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    return g2;
+  }
+  (function () {
+    var g = ZONES.recycle.g;
+    var items = [['r-paper', 'paper', -3.6, 5.4], ['r-pack', 'pack', -5.4, 2.4], ['r-pet', 'plastic', 5.2, 6.0], ['r-can', 'can', 2.6, 7.8], ['r-glass', 'glass', -2.2, 8.2]];
+    items.forEach(function (it) {
+      var w = local(g, it[2], it[3]);
+      var m = makeTrash(it[1]); m.position.x = w.x; m.position.z = w.z; m.rotation.y = rand(0, 6);
+      addSpot({ id: it[0], zone: 'recycle', kind: 'trash', bin: it[1], x: w.x, z: w.z, r: 1.25, h: 0.6, auto: true, mesh: m });
+    });
+    var bw = local(g, 1.6, 4.6);
+    addSpot({ id: 'r-bins', zone: 'recycle', kind: 'bins', x: bw.x, z: bw.z, r: 2.2, h: 1.4 });
+  })();
+
+  /* 쑥쑥 숲: 빈 흙더미 5곳 → 묘목 → 물 주기 → 나무 */
+  (function () {
+    var g = ZONES.forest.g;
+    [[-0.6, -0.9, 1.2, 0], [1.6, 0.9, 0.95, 1], [-2.2, 1.4, 1.0, 0], [3.0, -0.4, 0.9, 1], [-3.4, -0.4, 0.85, 0]].forEach(function (t, i) {
+      var mound = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('#8a5a35')); mound.scale.y = 0.45; mound.position.set(t[0], 0, t[1]); mound.receiveShadow = true; g.add(mound);
+      var sap = new THREE.Group(); sap.position.set(t[0], 0.2, t[1]); g.add(sap); cyl(0.03, 0.04, 0.4, '#6b4224', 0, 0.2, 0, sap, 6); sph(0.16, '#7ccb6a', 0, 0.45, 0, sap); sap.visible = false;
+      var tr = tree(t[0], t[1], t[2], t[3], g, true); tr.visible = false;
+      var w = local(g, t[0], t[1]);
+      addSpot({ id: 'f-' + (i + 1), zone: 'forest', kind: 'plant', x: w.x, z: w.z, r: 1.7, h: 1.0, fx: function (inst) {
+        if (inst) { mound.scale.set(0.8, 0.25, 0.8); tr.visible = true; tr.scale.setScalar(1); addCircle(w.x, w.z, 0.45 * t[2]); return; }
+        popIn(sap, 0, false);
+        setTimeout(function () { burst(w.x, 1.6, w.z, ['#8fd3ff', '#47b4ff', '#ffffff'], 16); }, 500);
+        setTimeout(function () { sap.visible = false; mound.scale.set(0.8, 0.25, 0.8); popIn(tr, 0, false); addCircle(w.x, w.z, 0.45 * t[2]); burst(w.x, 2.2, w.z, ['#7fcd6b', '#a4d97a', '#ffd166'], 14, { leaf: true, life: 1.6 }); }, 1300);
+      } });
+    });
+  })();
+
+  /* 씽씽 등굣길: 자전거 + 체크포인트 고리 5개 + 초록 학교 */
+  var school = new THREE.Group(); school.position.set(-9.5, 0, 20.2); school.rotation.y = 0.35; scene.add(school);
+  box(3.6, 2.2, 2.2, '#fff7e6', 0, 1.1, 0, school); var sroof = cone(2.4, 1.1, '#5cb85c', 0, 2.75, 0, school, 4); sroof.rotation.y = Math.PI / 4; sroof.scale.set(1.1, 1, 0.75);
+  box(0.8, 1.2, 0.1, '#a8693f', 0, 0.6, 1.12, school); [-1.1, 1.1].forEach(function (x) { box(0.6, 0.55, 0.1, '#bfe3f5', x, 1.35, 1.12, school); });
+  cyl(0.04, 0.04, 2.6, '#9aa3ad', 2.2, 1.3, 0.6, school, 6); box(0.6, 0.38, 0.03, '#ff8a7a', 2.5, 2.4, 0.6, school);
+  var schoolSign = textPlane('초록 학교', { w: 2.2, h: 0.55, bg: '#2f7d5b' }); schoolSign.position.set(0, 3.6, 0.6); school.add(schoolSign);
+  addCircle(-9.5, 20.2, 2.2);
+  var ringMeshes = {};
+  (function () {
+    var g = ZONES.road.g;
+    var bw = local(g, -3.6, 3.9);
+    addSpot({ id: 't-bike', zone: 'road', kind: 'bike', x: bw.x, z: bw.z, r: 1.9, h: 1.2 });
+    var rideBike = new THREE.Group(); rideBike.position.set(bw.x + 0.9, 0, bw.z); scene.add(rideBike);
+    [-0.45, 0.45].forEach(function (x) { var wh = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 16), mat('#2f3437')); wh.position.set(x, 0.32, 0); rideBike.add(wh); });
+    box(0.95, 0.07, 0.07, '#7fcd6b', 0, 0.55, 0, rideBike).rotation.z = 0.15; box(0.07, 0.4, 0.07, '#555b61', 0.35, 0.72, 0, rideBike); box(0.3, 0.06, 0.12, '#2f3437', -0.25, 0.75, 0, rideBike);
+    ZONES.road.parkedBike = rideBike;
+    var RING_POS = [[17.5, 3.5], [10.5, -1.5], [5.5, 12.5], [-2.5, 15.5], [-8.2, 17.6]];
+    var ids = ['t-r1', 't-r2', 't-r3', 't-r4', 't-school'];
+    RING_POS.forEach(function (p, i) {
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.12, 8, 28), new THREE.MeshLambertMaterial({ color: i === 4 ? '#7fcd6b' : '#ffd166', emissive: i === 4 ? '#7fcd6b' : '#ffd166', emissiveIntensity: 0.5, transparent: true }));
+      ring.position.set(p[0], 1.25, p[1]); var nx = i < 4 ? RING_POS[i + 1] : [-9.5, 20.2]; ring.rotation.y = Math.atan2(nx[0] - p[0], nx[1] - p[1]); ring.visible = false; scene.add(ring);
+      ringMeshes[ids[i]] = ring;
+      addSpot({ id: ids[i], zone: 'road', kind: 'ring', x: p[0], z: p[1], r: 1.6, h: 2.0, auto: true, ring: ring });
+    });
+  })();
+
+  /* 들고 다니는 쓰레기 · 타는 자전거 */
+  var carryG = new THREE.Group(); carryG.position.y = 2.25; var carryMesh = null; // playerObj가 만들어진 뒤 붙임
+  var rideG = new THREE.Group(); rideG.visible = false; var riding = false;
+  [-0.42, 0.42].forEach(function (z) { var wh = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 16), mat('#2f3437')); wh.rotation.y = Math.PI / 2; wh.position.set(0, 0.3, z); rideG.add(wh); });
+  (function () { var f = box(0.07, 0.07, 0.9, '#7fcd6b', 0, 0.55, 0, rideG); f.rotation.x = -0.15; box(0.4, 0.06, 0.06, '#2f3437', 0, 0.85, 0.38, rideG); box(0.14, 0.05, 0.24, '#2f3437', 0, 0.68, -0.25, rideG); })();
+
+  function spotFx(s, instant) {
+    if (s.fx) s.fx(instant);
+    if (s.kind === 'trash' && s.mesh) { if (instant) scene.remove(s.mesh); }
+    if (s.kind === 'ring' && s.ring) { s.ring.material.color.set('#7fcd6b'); s.ring.material.emissive.set('#7fcd6b'); if (!instant) { burst(s.pos.x, 1.4, s.pos.z, ['#ffd166', '#7fcd6b', '#ffffff'], 16); tween(0.6, function (k) { s.ring.scale.setScalar(1 + k * 0.5); s.ring.material.opacity = 1 - k; }, function () { s.ring.visible = false; }); } else s.ring.visible = false; }
+    if (s.kind === 'bike') { if (ZONES.road.parkedBike) ZONES.road.parkedBike.visible = false; }
+  }
+
   /* ---------------- 플레이어 · 얼음이 ---------------- */
   var player = { pos: new THREE.Vector3(0, 0, 7.5), vel: new THREE.Vector3(), heading: Math.PI, rig: null, radius: 0.42 };
   var playerObj = new THREE.Group(); scene.add(playerObj);
+  playerObj.add(carryG); playerObj.add(rideG);
+  spots.forEach(function (s) { s.target = spotTarget(s); });
   var hatKind = 'none';
   function setAvatar(look) {
     if (player.rig) playerObj.remove(player.rig.root);
@@ -694,7 +844,7 @@ function create(canvas, opts) {
   addLabel('<b>얼음이</b><small>눌러서 같이 놀자!</small>', bear.root, 2.05, 'mascot');
 
   /* ---------------- 반짝 씨앗 12개 (가까이 가면 저절로 주움) ---------------- */
-  var SEED_POS = [[-5, 8.2], [6, 7], [-10.5, 2], [10.5, 1.5], [-17.5, -3], [17.5, -2.5], [-4.5, -12.5], [5.5, -13.5], [-20, 7.5], [20, 8.5], [1, 17.5], [-8.5, 18]];
+  var SEED_POS = [[-5, 8.2], [6, 7], [-10.5, 2], [10.5, 1.5], [-17.5, -3], [17.5, -2.5], [-4.5, -12.5], [5.5, -13.5], [-20, 7.5], [20, 8.5], [1, 17.5], [-12.5, 15.5]];
   var seeds = [];
   SEED_POS.forEach(function (p, i) {
     var g = new THREE.Group(); g.position.set(p[0], 0, p[1]); scene.add(g);
@@ -744,9 +894,13 @@ function create(canvas, opts) {
     if (moved > 12) return;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    var hits = ray.intersectObjects(targets.map(function (t) { return t.hit; }), false);
+    var cur = currentSpots();
+    var pickables = targets.map(function (t) { return t.hit; }).concat(spotHits.filter(function (h) { return cur.indexOf(h.userData.spot) >= 0; }));
+    var hits = ray.intersectObjects(pickables, false);
     if (hits.length) {
-      var t = hits[0].object.userData.target;
+      var hs = hits[0].object.userData.spot;
+      var t = hs ? hs.target : hits[0].object.userData.target;
+      if (hs && hs.auto) { moveTarget = { x: t.pos.x, z: t.pos.z, stopR: 0.3 }; pendingTalk = null; ping(t.pos.x, t.pos.z); return; } // 줍기·고리는 걸어가기만 하면 됨
       if (dist2(player.pos, t.pos) < t.r) { opts.onTalk && opts.onTalk(t); return; }
       pendingTalk = t; moveTarget = { x: t.pos.x, z: t.pos.z, stopR: t.r * 0.85 }; return;
     }
@@ -861,7 +1015,7 @@ function create(canvas, opts) {
 
     // 플레이어
     var inp = paused ? { ix: 0, iz: 0, mag: 0 } : readInput();
-    var top = inp.run ? 7.6 : 5.0, kk = 1 - Math.exp(-(inp.mag > 0.05 ? 11 : 15) * dt);
+    var top = (inp.run ? 7.6 : 5.0) * (riding ? 1.55 : 1), kk = 1 - Math.exp(-(inp.mag > 0.05 ? 11 : 15) * dt);
     player.vel.x += (inp.ix * top - player.vel.x) * kk; player.vel.z += (inp.iz * top - player.vel.z) * kk;
     player.pos.x += player.vel.x * dt; player.pos.z += player.vel.z * dt;
     resolve(player.pos, player.radius);
@@ -918,9 +1072,26 @@ function create(canvas, opts) {
       animCritter(t.critter, false, dt);
     });
 
-    // 가까운 대상
+    // 체험 물건: 표시 · 자동 줍기/통과
+    var curS = currentSpots();
+    spots.forEach(function (s) {
+      var act = curS.indexOf(s) >= 0 && (s.kind !== 'bins' || !!carryMesh);
+      s.marker.visible = act; s.ringMark.visible = act && s.kind !== 'ring';
+      if (s.kind === 'ring' && s.ring && !s.done) s.ring.visible = act;
+      if (act) { s.marker.position.y = s.h + 0.9 + Math.sin(T * 4 + s.pos.x) * 0.15; s.marker.rotation.y += dt * 2; }
+      if (act && s.auto) {
+        var inR = dist2(player.pos, s.pos) < s.r;
+        if (inR && !s.inside && !paused) { s.inside = true; opts.onSpot && opts.onSpot(s.target); }
+        else if (!inR) s.inside = false;
+      }
+    });
+    if (riding && player.rig) player.rig.root.position.y = 0.3;
+    else if (player.rig) player.rig.root.position.y = 0;
+
+    // 가까운 대상 (해 볼 체험 물건이 먼저)
     var best = null, bestD = 1e9;
-    targets.forEach(function (t) { if (t.type === 'mascot') return; var d = dist2(player.pos, t.pos); if (d < t.r && d < bestD) { best = t; bestD = d; } });
+    curS.forEach(function (s) { if (s.auto || (s.kind === 'bins' && !carryMesh)) return; var d = dist2(player.pos, s.pos); if (d < s.r && d < bestD) { best = s.target; bestD = d; } });
+    if (!best) targets.forEach(function (t) { if (t.type === 'mascot') return; var d = dist2(player.pos, t.pos); if (d < t.r && d < bestD) { best = t; bestD = d; } });
     if (best !== near) { near = best; opts.onNear && opts.onNear(near); }
 
     // 지구
@@ -968,6 +1139,27 @@ function create(canvas, opts) {
       else guideTarget = new THREE.Vector3(t.x, 0, t.z);
     },
     walkToPos: function (p) { if (!p) return; pendingTalk = null; moveTarget = { x: p.x, z: p.z, stopR: 0.4 }; },
+    /* 마을 체험 */
+    missionOn: function (zone) { activeZone = zone || null; },
+    spotDone: function (id, instant) { var s = spots.find(function (x) { return x.id === id; }); if (!s || s.done) return; s.done = true; spotFx(s, instant); },
+    spotsDone: function (zone) { return zoneSpots(zone).filter(function (s) { return s.done; }).map(function (s) { return s.id; }); },
+    nextSpot: function (zone) {
+      var z0 = activeZone; activeZone = zone; var list = currentSpots(); activeZone = z0;
+      if (carryMesh && zone === 'recycle') { var b = spots.find(function (s) { return s.id === 'r-bins'; }); return { x: b.pos.x, z: b.pos.z }; }
+      list = list.filter(function (s) { return s.kind !== 'bins'; });
+      var bs = null, bd = 1e9; list.forEach(function (s) { var d = dist2(player.pos, s.pos); if (d < bd) { bd = d; bs = s; } });
+      return bs ? { x: bs.pos.x, z: bs.pos.z } : null;
+    },
+    carry: function (id) {
+      if (carryMesh) { carryG.remove(carryMesh); carryMesh = null; }
+      if (!id) return;
+      var s = spots.find(function (x) { return x.id === id; }); if (!s) return;
+      if (s.mesh) s.mesh.visible = false; s.carried = true;
+      carryMesh = makeTrash(s.bin, carryG); carryMesh.scale.setScalar(1.3);
+    },
+    dropCarried: function (id) { var s = spots.find(function (x) { return x.id === id; }); if (s) { s.carried = false; if (s.mesh) s.mesh.visible = true; } if (carryMesh) { carryG.remove(carryMesh); carryMesh = null; } },
+    bike: function (onB) { riding = !!onB; rideG.visible = riding; },
+    binsBurst: function () { var b = spots.find(function (s) { return s.id === 'r-bins'; }); if (b) burst(b.pos.x, 1.4, b.pos.z, ['#7fcd6b', '#ffd166', '#8fd3ff'], 16); },
     snapshot: function () { renderer.render(scene, camera); try { return canvas.toDataURL('image/jpeg', 0.92); } catch (e) { return ''; } },
     setClean: function (k, instant) { cleanTarget = clamp(k, 0, 1); if (instant) { clean = cleanTarget; applyClean(); } },
     popSmog: popSmog,

@@ -657,6 +657,38 @@ function homework(opt) {
   }, function (e) { log('지구 숙제 실패 → 기본 카드', { error: e.message }); return fall(); });
 }
 
+/* ------------------------------------------------------------
+   ⑥ AI 학습하기 — 주제(근거 카드) 하나로 학년에 맞춘 짧은 수업
+      ① 쉽게 설명 → ② 생활 속 예시 → ③ 집에서 해 보기 → (확인 문제는 검수된 문제은행)
+   ------------------------------------------------------------ */
+var SCHEMA_LESSON = { type: 'object', properties: { intro: S_STR, example: S_STR, tryIt: S_STR }, required: ['intro', 'example', 'tryIt'] };
+function lessonFallback(card) {
+  var b = BANK.filter(function (x) { return x.ev === card.id; })[0];
+  var act = (window.GQ_ACTIONS || []).filter(function (a) { return a.ev === card.id; })[0];
+  var s = sentences(card.text);
+  return { intro: s[0] || card.text, example: (s[1] || '') + (b ? (s[1] ? ' ' : '') + b.explain : ''), tryIt: act ? act.text + '. ' + act.why : '오늘 배운 "' + card.title + '" 이야기를 가족에게 들려주기', mode: 'bank' };
+}
+function lesson(cardId, g) {
+  var card = CARD[cardId]; if (!card) return Promise.resolve(null);
+  var fb = lessonFallback(card);
+  if (!ready()) return Promise.resolve(fb);
+  var msgs = [
+    { role: 'system', content: PERSONA + '\n대상: ' + GRADE_DESC[grade(g).id] + '\n아이에게 [근거 카드] 내용으로 짧은 수업을 해 줘. 카드에 없는 사실·숫자는 보태지 마.\n- intro: 이게 무엇인지 쉬운 말로 2문장.\n- example: 아이가 집·학교에서 겪을 만한 장면으로 예를 들어 2문장.\n- tryIt: 오늘 집에서 직접 해 볼 수 있는 작은 실천 1가지와 이유 1문장. 밖이나 전기 기구를 다루면 "보호자와 함께".\n각 항목은 다정한 반말. JSON 객체 하나만: {"intro":"...","example":"...","tryIt":"..."}' },
+    { role: 'user', content: '[근거 카드] ' + card.title + ': ' + card.text }
+  ];
+  return call(msgs, { temperature: 0.6, maxTokens: isWeb() ? 380 : 600, timeoutSec: 30, json: true, schema: SCHEMA_LESSON }).then(function (t) {
+    var o = parseJSON(t, 'object') || {}, out = { mode: 'ai' }, used = 0;
+    ['intro', 'example', 'tryIt'].forEach(function (k) {
+      var r = S.checkOutput(o[k] || '', 200);
+      var okRel = r.ok && coverage(r.text, card.text + ' ' + card.title + ' ' + fb[k]) >= (k === 'intro' ? 0.3 : 0.18);
+      if (okRel && !/(습니다|입니다)/.test(r.text)) { out[k] = r.text; used++; } else out[k] = fb[k];
+    });
+    if (!used) out.mode = 'bank';
+    log('AI 학습하기', { card: card.id, title: card.title, aiParts: used + '/3' });
+    return out;
+  }, function (e) { log('AI 학습하기 실패 → 카드로 설명', { card: card.id, error: e.message }); return fb; });
+}
+
 /* 연결 테스트 */
 function test(cfg) {
   return LLM.chat(Object.assign({}, cfg, { maxTokens: 30, temperature: 0 }), [{ role: 'user', content: '"준비 완료"라고만 답해.' }], { stream: false })
@@ -665,7 +697,7 @@ function test(cfg) {
 
 window.GQAI = {
   loadCfg: loadCfg, saveCfg: saveCfg, ready: ready, test: test, probe: probe, status: function () { return STATUS; }, isWeb: isWeb,
-  makeQuiz: makeQuiz, reExplain: reExplain, similar: similar, ask: ask, homework: homework,
+  makeQuiz: makeQuiz, reExplain: reExplain, similar: similar, ask: ask, homework: homework, lesson: lesson,
   pickBank: pickBank, retrieve: retrieve, verifyItem: verifyItem, parseJSON: parseJSON,
   card: function (id) { return CARD[id]; }, SUGGEST: SUGGEST, LOG: function () { return LOG; },
   _check: { matchRewrites: matchRewrites, verifyRewrite: verifyRewrite, oxStatement: oxStatement, flipped: flipped }, // 검증 로직 점검용

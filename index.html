@@ -43,11 +43,13 @@
   </div>
 </header>
 <div class="fabs" id="fabs" hidden>
+  <button class="fab ai" id="fabAI"><span aria-hidden="true">🤖</span><small>AI 학습실</small></button>
   <button class="fab bear" id="fabBear"><span aria-hidden="true">🐻‍❄️</span><small>얼음이</small></button>
   <button class="fab wear" id="fabWear"><span aria-hidden="true">👕</span><small>꾸미기</small></button>
   <button class="fab photo" id="fabPhoto"><span aria-hidden="true">📸</span><small>사진</small></button>
   <button class="fab jump" id="fabJump"><span aria-hidden="true">⬆️</span><small>점프</small></button>
 </div>
+<div id="say" class="saybubble" role="status" hidden></div>
 <div id="hint" class="hint" hidden>👆 땅이나 친구를 누르면 걸어가요 · ⌨️ 방향키로 걷고 스페이스로 점프!</div>
 <button id="btnTalk" class="talk-btn" hidden>💬 <span id="talkLabel">말 걸기</span></button>
 
@@ -56,7 +58,7 @@
     <div class="logo" aria-hidden="true"><span class="globe">🌏</span><span class="pack">🧊</span></div>
     <h1>초록별 퀴즈 마을</h1>
     <p class="sub">지구 열 내리기 대작전</p>
-    <p class="lead">아기 지구 <b>동글이</b>가 온실가스 담요 때문에 열이 나요!<br>마을 친구들의 퀴즈를 풀어서 열을 내려 주세요.</p>
+    <p class="lead">아기 지구 <b>동글이</b>가 온실가스 담요 때문에 열이 나요!<br>마을 친구들과 직접 체험하며 열을 내려 주세요.</p>
     <div class="step"><h2>몇 학년이에요?</h2><div class="grades" id="grades"></div></div>
     <div class="step"><h2>내 캐릭터를 골라요</h2><div class="avatars" id="avatars"></div></div>
     <button id="btnStart" class="big-btn">퀴즈 마을로 출발! 🚀</button>

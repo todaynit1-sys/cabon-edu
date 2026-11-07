@@ -169,4 +169,63 @@ a.btnlike { display: inline-block; text-decoration: none; border-radius: 18px; p
   .bin small { font-size: 12px; }
   .mg-top > b { font-size: 15px; }
 }
-@media print { .fabs, .confetti, .flash { display: none !important; } }
+/* ---------- 마을 체험 ---------- */
+.talk-btn.act { background: #f2a93b; box-shadow: 0 6px 0 #c47f12, 0 12px 26px rgba(196, 127, 18, .35); }
+.fab.ai { background: #e9e4ff; }
+.saybubble { position: fixed; left: 14px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 7; max-width: min(460px, calc(100% - 110px)); display: flex; gap: 10px; align-items: flex-start; background: rgba(255, 253, 246, .97); border-radius: 22px; padding: 10px 14px 12px 10px; box-shadow: 0 5px 0 rgba(36, 65, 74, .12), var(--shadow); cursor: pointer; }
+.saybubble.show { animation: popin .4s cubic-bezier(.3, 1.5, .5, 1); }
+.saybubble .ava { flex: none; width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; font-size: 28px; background: color-mix(in srgb, var(--zc) 22%, white); }
+.saybubble b { font-family: var(--cute); font-weight: 400; font-size: 16px; }
+.saybubble p { margin: 2px 0 0; font-size: 16px; line-height: 1.55; }
+.pick-big.mission { width: 100%; flex-direction: row; justify-content: flex-start; gap: 14px; text-align: left; padding: 14px 18px; margin: 4px 0 10px; border-color: #b8e3a8; box-shadow: 0 5px 0 #8fcf7a; background: #effae9; }
+.pick-big.mission span { font-size: 44px; }
+.pick-big.mission b { font-size: 21px; display: block; }
+.pick-big.mission.done { filter: saturate(.6); }
+.mission-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+.mission-head span { font-size: 30px; }
+.mission-head b { font-family: var(--cute); font-weight: 400; font-size: 24px; color: var(--green-d); }
+.mission-steps { margin: 0 0 6px; padding: 0 0 0 4px; list-style: none; counter-reset: st; display: flex; flex-wrap: wrap; gap: 6px; }
+.mission-steps li { counter-increment: st; background: #f6fbff; border-radius: 999px; padding: 5px 12px 5px 6px; font-size: 14px; }
+.mission-steps li::before { content: counter(st); display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: var(--sun); color: #6b4e00; font-weight: 800; font-size: 12px; }
+.temps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.pk.temp { font-family: var(--cute); font-size: 24px; padding: 16px 6px; }
+.pk.temp.shake { animation: shake .4s; }
+.sortbins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 8px 0; }
+.sortbins .bin { padding: 16px 2px 12px; }
+.sortbins .bin span { font-size: 34px; }
+.learned { background: #fffbe8; border: 2px dashed #f2cf62; border-radius: 18px; padding: 10px 14px; margin: 8px 0; }
+.learned b { font-family: var(--cute); font-weight: 400; font-size: 17px; }
+.learned ul { margin: 6px 0 0; padding-left: 20px; font-size: 14.5px; line-height: 1.6; }
+
+/* ---------- AI 학습실 ---------- */
+.lab { display: grid; gap: 10px; margin: 6px 0; }
+.lab .pick-big { flex-direction: row; justify-content: flex-start; gap: 14px; text-align: left; padding: 14px 16px; }
+.lab .pick-big span { font-size: 40px; }
+.lab .pick-big b { display: block; font-size: 20px; }
+.lab-learn { border-color: #cbbcff; box-shadow: 0 5px 0 #b3a1f5; background: #f5f2ff; }
+.lab-quiz { border-color: #9ccfee; box-shadow: 0 5px 0 #9ccfee; background: #f2faff; }
+.lab-ask { border-color: #b8e3a8; box-shadow: 0 5px 0 #8fcf7a; background: #f3fbef; }
+.linkbtn { border: 0; background: none; color: var(--sky-d); text-decoration: underline; font-size: 13px; padding: 0; }
+.topics { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic { border: 2px solid #d9d0ff; background: #fff; color: #5b47b8; border-radius: 999px; padding: 8px 14px; font-size: 15px; }
+.topic.done { background: #f1edff; }
+.slide-dots { display: flex; gap: 6px; justify-content: center; margin: 4px 0 8px; }
+.slide-dots i { width: 28px; height: 8px; border-radius: 4px; background: #e7e0cf; }
+.slide-dots i.on { background: #8c74e8; }
+.slide { background: #fff; border: 3px solid #e2dbff; border-radius: 24px; padding: 16px 18px; text-align: center; animation: popin .35s cubic-bezier(.3, 1.4, .5, 1); }
+.slide-ico { font-size: 48px; }
+.slide h3 { margin: 4px 0 6px; font-family: var(--cute); font-weight: 400; font-size: 22px; color: #5b47b8; }
+.slide p { margin: 0; font-size: 19px; line-height: 1.7; }
+.evsmall { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.evsmall summary { cursor: pointer; }
+.evsmall p { margin: 6px 0 0; line-height: 1.55; }
+
+@media (max-width: 760px) {
+  .saybubble { bottom: calc(160px + env(safe-area-inset-bottom)); max-width: calc(100% - 92px); }
+  .saybubble p { font-size: 14.5px; }
+  .temps { grid-template-columns: repeat(2, 1fr); }
+  .sortbins { gap: 5px; }
+  .sortbins .bin span { font-size: 26px; }
+  .slide p { font-size: 17px; }
+}
+@media print { .fabs, .confetti, .flash, .saybubble { display: none !important; } }

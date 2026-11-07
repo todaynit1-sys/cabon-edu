@@ -26,7 +26,8 @@ function freshState() {
 /* 별: 퀴즈 별(마을마다 최대 5) + 놀이 별(놀이마다 최고 3) */
 function quizStars() { return ZONES.reduce(function (s, z) { return s + (state.zones[z.id].stars || 0); }, 0); }
 function gameStars() { return ZONES.reduce(function (s, z) { return s + ((state.games[z.id] || {}).stars || 0); }, 0); }
-function totalStars() { return quizStars() + gameStars(); }
+function missionStars() { return ZONES.reduce(function (s, z) { return s + (state.zones[z.id].cleared ? 3 : 0); }, 0); }
+function totalStars() { return missionStars() + quizStars() + gameStars(); }
 function seedCount() { return Object.keys(state.seeds || {}).length; }
 var SEED_TOTAL = 12;
 /* 꾸미기 모자 — 별을 모으면 열려요 */
@@ -46,7 +47,8 @@ function checkUnlocks() {
 }
 var state = freshState();
 try { var saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (saved && saved.zones) state = Object.assign(freshState(), saved); } catch (e) {}
-['seeds', 'games', 'unlocked'].forEach(function (k) { if (!state[k] || typeof state[k] !== 'object') state[k] = {}; });
+['seeds', 'games', 'unlocked', 'learned'].forEach(function (k) { if (!state[k] || typeof state[k] !== 'object') state[k] = {}; });
+ZONES.forEach(function (z) { if (!state.zones[z.id]) state.zones[z.id] = { partial: 0, cleared: false, stars: 0, plays: 0 }; if (!state.zones[z.id].spots) state.zones[z.id].spots = {}; });
 function save() {
   var keys = Object.keys(state.seen); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(function (k) { delete state.seen[k]; });
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
@@ -176,10 +178,15 @@ function updateHUD(instant) {
    ------------------------------------------------------------ */
 var QUEST = null;
 function computeQuest() {
+  var am = state.activeMission;
+  if (am && !state.zones[am].cleared) { // 체험 중: 다음 할 일과 가장 가까운 물건으로 안내
+    var M = MISSIONS[am], dn = missionDoneCount(am), tot = missionTotal(am);
+    var hint = am === 'recycle' ? (carrying ? '분리수거함으로 가져가기' : '떨어진 쓰레기 줍기') : am === 'road' ? (state.zones.road.spots['t-bike'] ? '노란 고리 지나가기' : '정류장 자전거 타기') : '반짝이는 화살표 찾아가기';
+    return { ico: M.icon, txt: M.title + ' ' + dn + '/' + tot + ' · ' + hint, target: 'spot', go: '길 안내' };
+  }
   var next = ZONES.find(function (z) { return !state.zones[z.id].cleared; });
   if (next) {
-    var st = state.zones[next.id];
-    return { ico: next.icon, txt: next.friend + '에게 가서 ' + (st.partial ? '퀴즈 마저 풀기' : '퀴즈 풀기'), target: next.id, go: '데려다줘' };
+    return { ico: MISSIONS[next.id].icon, txt: next.friend + '와 ' + MISSIONS[next.id].title + ' 체험하기', target: next.id, go: '데려다줘' };
   }
   if (!state.finale) return { ico: '🌏', txt: '동글이에게 가 보기', target: 'earth', go: '데려다줘' };
   if (seedCount() < SEED_TOTAL) return { ico: '🌰', txt: '반짝 씨앗 찾기 ' + seedCount() + '/' + SEED_TOTAL, target: 'seed', go: '가까운 씨앗' };
@@ -192,11 +199,12 @@ function updateQuest() {
   QUEST = computeQuest();
   $('#questIco').textContent = QUEST.ico; $('#questTxt').textContent = QUEST.txt;
   $('#questGo').textContent = QUEST.go ? QUEST.go + ' ▶' : ''; $('#questGo').hidden = !QUEST.go;
-  if (world) world.setGuide(QUEST.target === 'seed' ? world.nextSeed() : QUEST.target);
+  if (world) world.setGuide(QUEST.target === 'seed' ? world.nextSeed() : QUEST.target === 'spot' ? world.nextSpot(state.activeMission) : QUEST.target);
 }
 $('#quest').addEventListener('click', function () {
   if (!QUEST || !world || !QUEST.target) return;
   SFX.click();
+  if (QUEST.target === 'spot') { var sp = world.nextSpot(state.activeMission); if (sp) { world.walkToPos(sp); world.setGuide(sp); } return; }
   if (QUEST.target === 'seed') { var p = world.nextSeed(); if (p) { world.walkToPos(p); world.setGuide(p); toast('🌰 반짝 씨앗을 찾으러 가요!'); } return; }
   world.walkTo(QUEST.target);
 });
@@ -213,7 +221,8 @@ function refreshTalk() {
   var b = $('#btnTalk');
   if (!nearT || !modal.hidden || !$('#start').hidden) { b.hidden = true; return; }
   b.hidden = false;
-  $('#talkLabel').textContent = nearT.name + '와 이야기하기';
+  if (nearT.type === 'spot') { var d = spotDef(nearT.id); $('#talkLabel').textContent = nearT.kind === 'bins' ? '♻️ 분리수거함에 넣기' : (d && d.act) || '해 보기'; b.classList.add('act'); }
+  else { $('#talkLabel').textContent = nearT.name + '와 이야기하기'; b.classList.remove('act'); }
 }
 $('#btnTalk').addEventListener('click', function () { SFX.click(); if (nearT) onTalk(nearT); });
 function onTalk(t) {
@@ -221,6 +230,242 @@ function onTalk(t) {
   if (t.type === 'friend') openFriend(t.zone);
   else if (t.type === 'earth') openEarth();
   else if (t.type === 'mascot') openBear();
+  else if (t.type === 'spot') handleSpot(t, false);
+}
+
+/* ------------------------------------------------------------
+   마을 체험 (3D 마을 안에서 직접 해 보기)
+   ------------------------------------------------------------ */
+var MISSIONS = window.GQ_MISSIONS;
+var carrying = null; // 들고 있는 쓰레기 spot id
+function mSpots(zone) { return MISSIONS[zone].spots; }
+function missionTotal(zone) { return mSpots(zone).length; }
+function missionDoneCount(zone) { var d = state.zones[zone].spots || {}; return mSpots(zone).filter(function (s) { return d[s.id]; }).length; }
+function spotDef(id) { var f = null; Object.keys(MISSIONS).forEach(function (z) { MISSIONS[z].spots.forEach(function (s) { if (s.id === id) f = Object.assign({ zone: z }, s); }); }); return f; }
+function binName(id) { var b = MISSIONS.recycle.bins.find(function (x) { return x[0] === id; }); return b ? b[2] : id; }
+function josa(w, a, b) { var c = String(w).charCodeAt(String(w).length - 1); if (c < 0xac00 || c > 0xd7a3) return b; return (c - 0xac00) % 28 ? a : b; }
+
+/* 체험 중 친구의 말풍선 (화면 아래, 체험을 멈추지 않음) */
+var sayT = 0;
+function showSay(zone, text, ms) {
+  var z = ZMAP[zone], el = $('#say');
+  el.innerHTML = '<span class="ava" style="--zc:' + (z ? z.color : '#4aa3df') + '">' + (z ? ANIMAL_EMOJI[z.animal] : '🐻‍❄️') + '</span><div><b>' + esc(z ? z.friend : '얼음이') + '</b><p>' + esc(text) + '</p></div>';
+  el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(sayT); sayT = setTimeout(function () { el.hidden = true; }, ms || 7000);
+  TTS.speak(text, 'friend');
+}
+$('#say').addEventListener('click', function () { this.hidden = true; });
+
+function startMission(zone) {
+  var z = ZMAP[zone], M = MISSIONS[zone];
+  openModal(friendHead(z) + '<div class="mission-head"><span>' + M.icon + '</span><b>' + esc(M.title) + ' 체험</b></div>' +
+    '<p class="say">' + esc(M.intro) + '</p>' +
+    '<ol class="mission-steps">' + M.spots.filter(function (s) { return !s.ring || s.id === 't-school'; }).map(function (s) { return '<li>' + esc(s.act ? s.act.replace(/^\S+\s/, '') : s.label) + '</li>'; }).join('') + '</ol>' +
+    '<div class="btns"><button class="primary big" data-act="go" data-autofocus>체험 시작! ▶</button><button class="ghost" data-act="close">나중에</button></div>', { cls: 'friend' });
+  TTS.speak(M.intro, 'friend');
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'close') closeModal();
+    if (a.dataset.act === 'go') {
+      SFX.click(); closeModal();
+      if (carrying && state.activeMission === 'recycle' && zone !== 'recycle' && world) { world.dropCarried(carrying); carrying = null; }
+      if (state.activeMission === 'road' && zone !== 'road' && world) world.bike(false);
+      state.activeMission = zone; save();
+      if (world) world.missionOn(zone);
+      if (zone === 'road' && state.zones.road.spots['t-bike'] && world) world.bike(true);
+      updateHUD();
+      showSay(zone, zone === 'recycle' ? '바닥에 떨어진 쓰레기를 찾아 가까이 가 봐! 노란 화살표가 알려 줄 거야.' : zone === 'road' ? '정류장 옆에 있는 초록 자전거로 가 봐!' : '노란 화살표가 떠 있는 곳으로 가면 아래에 버튼이 생겨. 눌러서 직접 해 봐!');
+    }
+  };
+}
+function handleSpot(t, auto) {
+  var d = spotDef(t.id), zone = t.zone;
+  if (t.kind === 'trash') {
+    if (carrying) { if (carrying !== t.id) showSay(zone, '손에 든 쓰레기를 먼저 분리수거함에 넣고 오자!', 3500); return; }
+    carrying = t.id; if (world) world.carry(t.id); SFX.pop();
+    showSay(zone, d.label + josa(d.label, '을', '를') + ' 주웠어! 분리수거함으로 가져가서 알맞은 칸에 넣어 줘.', 4500);
+    updateQuest(); return;
+  }
+  if (t.kind === 'bins') { if (carrying) openSort(); else showSay(zone, '먼저 섬에 떨어진 쓰레기를 주워 와!', 3000); return; }
+  if (d && d.ask === 'ac') { openAc(t.id); return; }
+  if (t.kind === 'bike') { if (world) world.bike(true); SFX.boing(); }
+  completeSpot(zone, t.id);
+  if (t.id === 't-school' && world) world.bike(false);
+}
+function completeSpot(zone, id) {
+  var st = state.zones[zone]; st.spots = st.spots || {};
+  if (st.spots[id]) return;
+  st.spots[id] = 1;
+  var d = spotDef(id);
+  if (world) world.spotDone(id);
+  if (!st.cleared) { var before = st.partial; st.partial = Math.min(5, Math.max(st.partial, Math.round(missionDoneCount(zone) / missionTotal(zone) * 5))); for (var k = before; k < st.partial; k++) if (world) world.popSmog(zone); }
+  save(); SFX.correct(); if (world) world.cheer();
+  showSay(zone, d.say, 8000);
+  updateHUD();
+  if (missionDoneCount(zone) >= missionTotal(zone) && !st.cleared) setTimeout(function () { missionComplete(zone); }, 2600);
+}
+function openAc(id) {
+  var zone = 'home';
+  openModal('<div class="who" style="--zc:#4aa3df"><span class="ava">❄️</span><div><b>에어컨 온도 맞추기</b><small>지금 18℃로 아주 춥게 켜져 있어요</small></div></div>' +
+    '<p class="say">여름에 에어컨은 몇 도로 맞추면 좋을까?</p><div class="temps">' + [18, 22, 26, 30].map(function (t) { return '<button class="pk temp" data-t="' + t + '">' + t + '℃</button>'; }).join('') + '</div><p class="fine" id="acMsg"></p>', { cls: 'friend' });
+  TTS.speak('여름에 에어컨은 몇 도로 맞추면 좋을까?', 'friend');
+  mcard.onclick = function (e) {
+    var b = e.target.closest('[data-t]'); if (!b) return;
+    var t = +b.dataset.t;
+    if (t === 26) { SFX.correct(); closeModal(); completeSpot(zone, id); }
+    else { SFX.wrong(); b.classList.add('shake'); $('#acMsg').textContent = t < 26 ? '조금 더 높여 볼까? 너무 차갑게 하면 에너지를 많이 써요.' : '음… 그건 너무 덥겠다! 시원하면서 에너지도 아끼는 온도는?'; }
+  };
+}
+function openSort() {
+  var d = spotDef(carrying), B = MISSIONS.recycle.bins;
+  openModal('<div class="who" style="--zc:#4aa3df"><span class="ava">♻️</span><div><b>' + esc(d.label) + josa(d.label, '은', '는') + ' 어디에?</b><small>알맞은 칸을 눌러 넣어요</small></div></div>' +
+    '<div class="sortbins">' + B.map(function (b) { return '<button class="bin bin-' + b[0] + '" data-b="' + b[0] + '"><span>' + b[1] + '</span><small>' + b[2] + '</small></button>'; }).join('') + '</div><p class="fine" id="sortMsg"></p>' +
+    '<div class="btns"><button class="ghost" data-act="close">조금 이따가</button></div>', { cls: 'friend' });
+  TTS.speak(d.label + josa(d.label, '은', '는') + ' 어디에 넣을까?', 'friend');
+  mcard.onclick = function (e) {
+    if (e.target.closest('[data-act="close"]')) { closeModal(); return; }
+    var b = e.target.closest('[data-b]'); if (!b) return;
+    if (b.dataset.b === d.bin) {
+      var id = carrying; carrying = null; if (world) { world.carry(null); world.binsBurst(); }
+      closeModal(); completeSpot('recycle', id);
+    } else {
+      SFX.wrong(); b.classList.add('shake'); setTimeout(function () { b.classList.remove('shake'); }, 400);
+      $('#sortMsg').textContent = d.label + josa(d.label, '은', '는') + ' ' + binName(b.dataset.b) + ' 칸이 아니야. 다시 골라 볼래? (힌트: ' + (AI.card(d.ev) ? AI.card(d.ev).title : '') + ')';
+    }
+  };
+}
+function missionComplete(zone) {
+  var z = ZMAP[zone], M = MISSIONS[zone], st = state.zones[zone];
+  var first = !st.cleared;
+  st.cleared = true; st.partial = 5; state.activeMission = null; save();
+  if (world) world.missionOn(null);
+  SFX.fanfare(); confetti(40);
+  var G = window.GQGames.META[zone], next = '';
+  openModal('<div class="clear-top" style="--zc:' + z.color + '"><div class="big-stamp">' + M.icon + '<i>✓</i></div><h2>' + esc(M.title) + ' 체험 완료!</h2><div class="stars"><i>★</i><i>★</i><i>★</i></div></div>' +
+    '<p class="say">' + esc(z.cleared) + '</p>' +
+    '<div class="learned"><b>📒 오늘 체험하며 배운 것</b><ul>' + M.spots.filter(function (s) { return s.id !== 't-r4'; }).slice(0, 5).map(function (s) { var ss = s.say.split(/(?<=[.!?])\s/).filter(function (x) { return x.replace(/[^가-힣]/g, '').length >= 8; }); return '<li>' + esc(ss[0] || s.say) + '</li>'; }).join('') + '</ul></div>' +
+    '<div class="btns"><button class="primary big" data-act="close" data-autofocus>마을 구경하기 👀</button><button class="ghost" data-act="quiz">🤖 AI 문제로 확인하기</button><button class="ghost" data-act="game">' + G.icon + ' 놀이</button></div>', {
+    cls: 'clear',
+    onClose: function () {
+      if (world) world.clearZone(zone);
+      updateHUD(); checkUnlocks();
+      if (next === 'quiz') { setTimeout(function () { openQuizFor(zone); }, 350); return; }
+      if (next === 'game') { setTimeout(function () { openGame(zone); }, 350); return; }
+      if (first && ZONES.every(function (x) { return state.zones[x.id].cleared; }) && !state.finale) setTimeout(openFinale, 2600);
+      else if (first) toast('다음 마을 친구에게 가 볼까요? 왼쪽 위 "다음 할 일"을 누르면 데려다줘요!', 3600);
+    }
+  });
+  TTS.speak(M.title + ' 체험 완료! ' + z.cleared, 'friend');
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    next = a.dataset.act === 'close' ? '' : a.dataset.act; closeModal();
+  };
+}
+/* ------------------------------------------------------------
+   🤖 AI 학습실 — AI 학습하기 · AI 문제풀기 · 얼음이에게 묻기
+   ------------------------------------------------------------ */
+function openAiLab() {
+  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">🤖</span><div><b>AI 학습실</b><small>' + esc(aiStateText().long) + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<div class="lab">' +
+    '<button class="pick-big lab-learn" data-act="learn"><span>📚</span><b>AI 학습하기</b><small>궁금한 주제를 고르면 AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 짧은 수업을 해 줘요</small></button>' +
+    '<button class="pick-big lab-quiz" data-act="quiz"><span>📝</span><b>AI 문제풀기</b><small>마을을 고르면 AI가 문제를 내고, 틀리면 다시 설명해 줘요</small></button>' +
+    '<button class="pick-big lab-ask" data-act="ask"><span>💬</span><b>얼음이에게 묻기</b><small>지구 이야기 카드에서 찾아서 대답해요</small></button></div>' +
+    (AI.ready() ? '' : '<p class="fine">💡 무료 AI를 켜면 수업과 문제를 AI가 학년에 맞춰 만들어 줘요. 켜지 않아도 지구 이야기 카드로 배울 수 있어요. <button class="linkbtn" data-act="ai">무료 AI 켜기</button></p>'), { cls: 'menu lab-card' });
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    var act = a.dataset.act; SFX.click();
+    if (act === 'close') closeModal();
+    if (act === 'learn') openLearn();
+    if (act === 'ask') openChat();
+    if (act === 'ai') openAiSetup();
+    if (act === 'quiz') {
+      openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">📝</span><div><b>AI 문제풀기</b><small>어느 마을 문제를 풀어 볼까요?</small></div><button class="mini" data-act="back" aria-label="뒤로">←</button></div>' +
+        '<div class="zone-list">' + ZONES.map(function (z) { var st = state.zones[z.id]; return '<button class="zl" data-z="' + z.id + '" style="--zc:' + z.color + '"><span>' + z.icon + '</span><b>' + esc(z.topic) + '</b><small>' + esc(z.friend) + (st.stars ? ' · 별 ' + st.stars + '개' : '') + '</small></button>'; }).join('') + '</div>', { cls: 'menu' });
+      mcard.onclick = function (ev) { var zb = ev.target.closest('[data-z]'); if (zb) { openQuizFor(zb.dataset.z); return; } if (ev.target.closest('[data-act="back"]')) openAiLab(); };
+    }
+  };
+}
+function openLearn() {
+  var groups = [{ id: 'earth', name: '지구와 기후', icon: '🌏' }].concat(ZONES.map(function (z) { return { id: z.id, name: z.topic, icon: z.icon }; }));
+  state.learned = state.learned || {};
+  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">📚</span><div><b>AI 학습하기</b><small>배우고 싶은 주제를 골라요 · 배운 주제 ' + Object.keys(state.learned).length + '/' + window.GQ_CARDS.length + '</small></div><button class="mini" data-act="back" aria-label="뒤로">←</button></div>' +
+    groups.map(function (gr) {
+      return '<h3 class="qh">' + gr.icon + ' ' + esc(gr.name) + '</h3><div class="topics">' + window.GQ_CARDS.filter(function (c) { return c.zone === gr.id; }).map(function (c) { return '<button class="topic ' + (state.learned[c.id] ? 'done' : '') + '" data-c="' + c.id + '">' + esc(c.title) + (state.learned[c.id] ? ' ✓' : '') + '</button>'; }).join('') + '</div>';
+    }).join(''), { cls: 'menu learn' });
+  mcard.onclick = function (e) {
+    var c = e.target.closest('[data-c]'); if (c) { SFX.click(); openLesson(c.dataset.c); return; }
+    if (e.target.closest('[data-act="back"]')) openAiLab();
+  };
+}
+function openLesson(cardId) {
+  var card = AI.card(cardId);
+  openModal('<div class="who" style="--zc:#8fd3ff"><span class="ava">🐻‍❄️</span><div><b>' + esc(card.title) + '</b><small>얼음이 선생님의 짧은 수업</small></div></div>' +
+    '<div class="making"><div class="bounce">📚</div><p>얼음이가 <b>' + esc(GRADES[state.grade].label) + '</b> 눈높이로 수업을 준비하고 있어요…</p></div>', { cls: 'lesson locked' });
+  AI.lesson(cardId, state.grade).then(function (L) {
+    if (!L || modal.hidden || !mcard.classList.contains('lesson')) return;
+    var steps = [{ ico: '💡', h: '이게 뭐야?', t: L.intro }, { ico: '🏠', h: '이런 장면 본 적 있니?', t: L.example }, { ico: '🌱', h: '오늘 해 볼 일', t: L.tryIt }];
+    var check = window.GQ_BANK.filter(function (b) { return b.ev === cardId; })[0];
+    var i = 0;
+    function render() {
+      var s = steps[i];
+      mcard.classList.remove('locked');
+      mcard.innerHTML = '<div class="who" style="--zc:#8fd3ff"><span class="ava">🐻‍❄️</span><div><b>' + esc(card.title) + '</b><small>' + (L.mode === 'ai' ? '✨ AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 만든 수업 · 근거 카드로 확인' : '📗 지구 이야기 카드로 배우기') + '</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+        '<div class="slide-dots">' + steps.map(function (_, k) { return '<i class="' + (k <= i ? 'on' : '') + '"></i>'; }).join('') + (check ? '<i class="' + (i >= 3 ? 'on' : '') + '"></i>' : '') + '</div>' +
+        '<div class="slide"><span class="slide-ico">' + s.ico + '</span><h3>' + esc(s.h) + '</h3><p>' + esc(s.t) + '</p></div>' +
+        '<details class="evsmall"><summary>📄 근거 카드 보기</summary><p>' + esc(card.text) + '</p></details>' +
+        '<div class="btns">' + (i > 0 ? '<button class="ghost" data-act="prev">◀ 이전</button>' : '') + '<button class="primary big" data-act="next" data-autofocus>' + (i < steps.length - 1 ? '다음 ▶' : check ? '확인 문제 풀기 ✏️' : '다 배웠어요! ✓') + '</button></div>';
+      TTS.speak(s.h + '. ' + s.t, 'bear');
+    }
+    function renderCheck() {
+      var it = Object.assign({ source: 'bank' }, check);
+      var opts = it.type === 'ox' ? '<div class="ox"><button class="opt o" data-a="O"><span>O</span>맞아요</button><button class="opt x" data-a="X"><span>X</span>아니에요</button></div>'
+        : '<div class="choices">' + it.options.map(function (o, k) { return '<button class="opt c" data-a="' + k + '"><span>' + (k + 1) + '</span>' + esc(o) + '</button>'; }).join('') + '</div>';
+      mcard.innerHTML = '<div class="who" style="--zc:#8fd3ff"><span class="ava">✏️</span><div><b>확인 문제</b><small>' + esc(card.title) + '</small></div></div><div class="qbox"><p class="q">' + esc(it.q) + '</p></div>' + opts + '<div class="fb" hidden></div>';
+      TTS.speak(it.q, 'bear');
+      mcard.onclick = function (e) {
+        var b = e.target.closest('[data-a]');
+        if (b && !b.disabled) {
+          var ch = it.type === 'ox' ? b.dataset.a : +b.dataset.a, ok = ch === it.answer;
+          mcard.querySelectorAll('.opt').forEach(function (x) { x.disabled = true; var v = it.type === 'ox' ? x.dataset.a : +x.dataset.a; if (v === it.answer) x.classList.add('right'); else if (v === ch) x.classList.add('wrong'); });
+          var fb = mcard.querySelector('.fb'); fb.hidden = false;
+          if (ok) { SFX.correct(); confetti(18); finishLesson(fb, '딩동댕! 🎉 ' + it.explain); }
+          else {
+            SFX.wrong(); fb.className = 'fb oops'; fb.innerHTML = '<p class="thinking">얼음이가 다시 알려 줄게… <i class="dots3"><b></b><b></b><b></b></i></p>';
+            AI.reExplain(it, ch, state.grade).then(function (r) { finishLesson(fb, r.text, true); });
+          }
+          return;
+        }
+        if (e.target.closest('[data-act="close"]')) closeModal();
+        if (e.target.closest('[data-act="more"]')) openLearn();
+      };
+    }
+    function finishLesson(fb, text, oops) {
+      state.learned[cardId] = 1; save();
+      fb.className = 'fb ' + (oops ? 'oops' : 'good');
+      fb.innerHTML = '<p>' + esc(text) + '</p><p class="smogmsg">📚 "' + esc(card.title) + '" 배우기 완료! (배운 주제 ' + Object.keys(state.learned).length + '개)</p><div class="btns"><button class="primary big" data-act="more">다른 주제 배우기 📚</button><button class="ghost" data-act="close">닫기</button></div>';
+      TTS.speak(text, 'bear');
+    }
+    mcard.onclick = function (e) {
+      var a = e.target.closest('[data-act]'); if (!a) return;
+      if (a.dataset.act === 'close') { closeModal(); return; }
+      if (a.dataset.act === 'prev') { i = Math.max(0, i - 1); render(); return; }
+      if (a.dataset.act === 'next') {
+        SFX.click();
+        if (i < steps.length - 1) { i++; render(); return; }
+        if (check) { i = 3; renderCheck(); return; }
+        state.learned[cardId] = 1; save(); toast('📚 "' + card.title + '" 배우기 완료!'); openLearn();
+      }
+    };
+    render();
+  });
+}
+
+/* AI 문제풀기: 친구 얼굴로 퀴즈 열기 */
+function openQuizFor(zone) {
+  var z = ZMAP[zone];
+  if (world) world.focus(zone);
+  openModal(friendHead(z) + '<p class="say">AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 문제를 준비할게!</p>', { cls: 'friend' });
+  prepareQuiz(zone);
 }
 
 /* ------------------------------------------------------------
@@ -274,22 +519,28 @@ function aiBadge() {
 function openFriend(zone) {
   var z = ZMAP[zone], st = state.zones[zone];
   if (world) world.focus(zone);
-  var again = st.cleared, G = window.GQGames.META[zone], gs = state.games[zone] || {};
-  var line = again ? '또 왔구나! 퀴즈를 다시 풀어도 좋고, 나랑 ' + G.title + ' 놀이를 해도 좋아!' : z.greet + ' 퀴즈가 끝나면 ' + G.title + ' 놀이도 같이 하자!';
+  var M = MISSIONS[zone], cleared = st.cleared, G = window.GQGames.META[zone], gs = state.games[zone] || {};
+  var doing = state.activeMission === zone, dn = missionDoneCount(zone);
+  var line = cleared ? '고마워! 덕분에 우리 마을이 깨끗해졌어. 놀이도 하고, AI 문제로 배운 걸 확인해 볼래?'
+    : doing ? M.title + ' 체험 중이야! 지금 ' + dn + '/' + missionTotal(zone) + '개 했어. 노란 화살표를 따라가 봐!'
+    : z.greet + ' 우리 마을에서 ' + M.title + ' 체험을 해 볼래?';
   var stars = function (n) { return '<em class="minis">' + [0, 1, 2].map(function (i) { return i < n ? '★' : '☆'; }).join('') + '</em>'; };
   openModal(friendHead(z) +
     '<p class="say">' + esc(line) + '</p>' +
+    '<button class="pick-big mission' + (cleared ? ' done' : '') + '" data-act="mission" data-autofocus><span>' + M.icon + '</span><b>' + (cleared ? '체험 완료 ✓ ' + esc(M.title) : doing ? '계속 체험하기: ' + esc(M.title) : '체험하기: ' + esc(M.title)) + '</b><small>' + (cleared ? '마을이 깨끗해졌어요' : '직접 해 보면 마을이 깨끗해지고 지구 열이 내려가요') + '</small></button>' +
     '<div class="choice2">' +
-    '<button class="pick-big quiz" data-act="start" data-autofocus><span>📝</span><b>' + (again ? '퀴즈 다시 풀기' : '퀴즈 풀기') + '</b><small>' + (again ? '지난번 별 ' + st.stars + '개' : '맞히면 지구 열이 내려가요') + '</small></button>' +
-    '<button class="pick-big play" data-act="game"><span>' + G.icon + '</span><b>놀이: ' + esc(G.title) + '</b><small>' + (gs.best ? '최고 ' + gs.best + '점 ' + stars(gs.stars || 0) : '30초 동안 신나게!') + '</small></button></div>' +
+    '<button class="pick-big play" data-act="game"><span>' + G.icon + '</span><b>놀이: ' + esc(G.title) + '</b><small>' + (gs.best ? '최고 ' + gs.best + '점 ' + stars(gs.stars || 0) : '30초 동안 신나게!') + '</small></button>' +
+    '<button class="pick-big quiz" data-act="quiz"><span>🤖</span><b>AI 문제풀기</b><small>' + (st.stars ? '지난번 별 ' + st.stars + '개' : 'AI가 학년에 맞춰 내 줘요') + '</small></button></div>' +
     '<div class="meta">' + aiBadge() + '</div>' +
     '<div class="btns"><button class="ghost" data-act="close">나중에 할래</button></div>', { cls: 'friend' });
   TTS.speak(line, 'friend');
   mcard.onclick = function (e) {
     var a = e.target.closest('[data-act]'); if (!a) return;
-    if (a.dataset.act === 'close') closeModal();
-    if (a.dataset.act === 'start') { SFX.click(); prepareQuiz(zone); }
-    if (a.dataset.act === 'game') { SFX.click(); openGame(zone); }
+    var act = a.dataset.act;
+    if (act === 'close') closeModal();
+    if (act === 'mission') { SFX.click(); if (cleared) { toast(M.icon + ' 이미 체험을 마쳤어요! 놀이나 AI 문제풀기를 해 봐요'); return; } if (doing) { closeModal(); updateQuest(); showSay(zone, '노란 화살표를 따라가 봐! ' + dn + '/' + missionTotal(zone) + '개 했어.'); } else startMission(zone); }
+    if (act === 'quiz') { SFX.click(); prepareQuiz(zone); }
+    if (act === 'game') { SFX.click(); openGame(zone); }
   };
 }
 
@@ -438,10 +689,9 @@ function answer(raw) {
   if (ok) {
     SFX.correct(); Q.correct++; Q.streak = (Q.streak || 0) + 1;
     confetti(Q.streak >= 3 ? 36 : 18);
-    var st = state.zones[Q.zone]; if (!st.cleared) st.partial = Math.min(5, st.partial + 1);
-    save(); if (world) { world.popSmog(Q.zone); world.cheer(); } updateHUD();
+    save(); if (world) world.cheer(); // 마을 청소(지구 열)는 체험으로, 퀴즈는 별을 모아요
     fb.className = 'fb good';
-    fb.innerHTML = '<b class="big">딩동댕! 🎉' + (Q.streak >= 2 ? ' <span class="combo">🔥 ' + Q.streak + '연속 정답!</span>' : '') + '</b><p>' + esc(it.explain) + '</p><p class="smogmsg">뭉게 하나가 나비가 되어 날아갔어요 🦋</p>' +
+    fb.innerHTML = '<b class="big">딩동댕! 🎉' + (Q.streak >= 2 ? ' <span class="combo">🔥 ' + Q.streak + '연속 정답!</span>' : '') + '</b><p>' + esc(it.explain) + '</p><p class="smogmsg">⭐ 별 하나 더 가까워졌어요!</p>' +
       '<div class="btns"><button class="primary big" data-act="next" data-autofocus>' + (isLast() ? '결과 보기 ⭐' : '다음 문제 ▶') + '</button></div>';
     TTS.speak('딩동댕! ' + it.explain, 'friend');
     fb.querySelector('button').focus();
@@ -479,34 +729,31 @@ function next() {
 }
 function finishStation() {
   var zone = Q.zone, z = ZMAP[zone], st = state.zones[zone];
-  var stars = Math.max(1, Math.min(5, Q.correct));
-  var first = !st.cleared;
-  st.stars = Math.max(st.stars, stars); st.cleared = true; st.partial = 5;
-  var rep = Q.report || {}, src = Q.source;
+  var stars = Math.max(1, Math.min(5, Q.correct)), total = Q.items.length;
+  var best = stars > (st.stars || 0);
+  st.stars = Math.max(st.stars || 0, stars);
+  var rep = Q.report || {}, src = Q.source, correct = Q.correct;
   save(); Q = null;
   SFX.fanfare();
   mcard.classList.remove('locked');
   var rw = rep.mode === 'rewrite';
   var aiLine = src === 'bank' ? '' : '<p class="airep">✨ 이번 문제는 AI가 ' + esc(GRADES[state.grade].label) + ' 눈높이로 ' + (rw ? '다시 썼어요. 정답이 바뀌지 않았는지 확인한 문제만 냈어요' : '만들었어요. 근거 카드와 대조해서 통과한 문제만 냈어요') +
     (rep.dropped && rep.dropped.length ? ' (확인에서 걸러진 문제 ' + rep.dropped.length + '개)' : '') + '.</p>';
-  var G = window.GQGames.META[zone], goGame = false;
-  openModal('<div class="clear-top" style="--zc:' + z.color + '"><div class="big-stamp">' + z.icon + '<i>✓</i></div><h2>' + esc(z.name) + ' 깨끗!</h2>' +
+  var M = MISSIONS[zone], nextAct = '';
+  openModal('<div class="clear-top" style="--zc:' + z.color + '"><div class="big-stamp">🤖<i>✓</i></div><h2>AI 문제 다 풀었어요!</h2>' +
     '<div class="stars">' + '★★★★★'.slice(0, stars).split('').map(function () { return '<i>★</i>'; }).join('') + '<span class="dim">' + '★★★★★'.slice(stars) + '</span></div></div>' +
-    '<p class="say">' + esc(z.cleared) + '</p>' + aiLine +
-    '<div class="btns"><button class="primary big" data-act="close" data-autofocus>마을 구경하기 👀</button><button class="ghost" data-act="game">' + G.icon + ' ' + esc(G.title) + ' 놀이</button></div>', {
+    '<p class="say">' + total + '문제 중 ' + correct + '개를 맞혔어요!' + (best ? ' 최고 기록이에요 🎉' : '') + (st.cleared ? '' : ' 이제 ' + M.title + ' 체험으로 직접 해 보면 마을이 깨끗해져요!') + '</p>' + aiLine +
+    '<div class="btns">' + (st.cleared ? '<button class="primary big" data-act="close" data-autofocus>좋아요 👍</button>' : '<button class="primary big" data-act="mission" data-autofocus>' + M.icon + ' 체험하러 가기</button><button class="ghost" data-act="close">닫기</button>') + '</div>', {
     cls: 'clear',
     onClose: function () {
-      if (world) world.clearZone(zone);
       updateHUD(); checkUnlocks();
-      if (goGame) { setTimeout(function () { openGame(zone); }, 400); return; }
-      if (first && ZONES.every(function (x) { return state.zones[x.id].cleared; }) && !state.finale) setTimeout(openFinale, 2600);
-      else if (first) toast('다음 마을 친구에게 가 볼까요? 왼쪽 위 "다음 할 일"을 누르면 데려다줘요!', 3600);
+      if (nextAct === 'mission') setTimeout(function () { startMission(zone); }, 350);
     }
   });
-  TTS.speak(z.name + ' 깨끗! ' + z.cleared, 'friend');
+  TTS.speak(total + '문제 중 ' + correct + '개를 맞혔어요!', 'friend');
   mcard.onclick = function (e) {
-    if (e.target.closest('[data-act="close"]')) closeModal();
-    if (e.target.closest('[data-act="game"]')) { goGame = true; closeModal(); }
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    nextAct = a.dataset.act === 'mission' ? 'mission' : ''; closeModal();
   };
 }
 
@@ -582,13 +829,13 @@ function openEarth() {
   var left = ZONES.filter(function (z) { return !state.zones[z.id].cleared; });
   var allDone = !left.length;
   var line = allDone ? '고마워! 네 덕분에 열이 다 내렸어. 이제 하나도 안 뜨거워! 오늘 배운 걸 집에서도 해 볼래?'
-    : left.length === ZONES.length ? '헥헥… 동글이는 온실가스 담요 때문에 너무 더워. 마을 친구들 퀴즈를 풀어서 열을 내려 줄래?'
+    : left.length === ZONES.length ? '헥헥… 동글이는 온실가스 담요 때문에 너무 더워. 마을 친구들과 불 끄기, 분리배출, 나무 심기, 자전거 등교를 직접 해서 열을 내려 줄래?'
     : '조금 시원해졌어! 남은 마을은 ' + left.length + '곳이야. 조금만 더 힘내 줘!';
   var tips = !state.tips; // 처음 온 아이에게만 놀이 방법 안내
   if (tips) { state.tips = true; save(); }
   openModal('<div class="who" style="--zc:#58b4ea"><span class="ava">🌏</span><div><b>아기 지구 동글이</b><small>초록별 마을 광장</small></div></div>' +
     '<p class="say">' + esc(line) + '</p>' +
-    (tips ? '<ul class="tips"><li><span>👆</span>땅을 누르면 그곳으로 걸어가요 <small>(키보드: 방향키 · 스페이스 점프)</small></li><li><span>💬</span>친구에게 가면 <b>퀴즈</b>와 <b>놀이</b>를 할 수 있어요</li><li><span>🌰</span>섬 곳곳의 <b>반짝 씨앗</b>을 모아 보세요</li><li><span>⭐</span>별을 모으면 <b>👕 꾸미기</b>에서 새 모자가 열려요</li></ul>' : '') +
+    (tips ? '<ul class="tips"><li><span>👆</span>땅을 누르면 그곳으로 걸어가요 <small>(키보드: 방향키 · 스페이스 점프)</small></li><li><span>🛠️</span>친구에게 가면 <b>체험</b>을 시작해요. 노란 화살표를 따라가서 직접 해 봐요</li><li><span>🤖</span>오른쪽 아래 <b>AI 학습실</b>에서 AI와 배우고 문제도 풀어요</li><li><span>🌰</span>섬 곳곳의 <b>반짝 씨앗</b>을 모아 보세요</li><li><span>⭐</span>별을 모으면 <b>👕 꾸미기</b>에서 새 모자가 열려요</li></ul>' : '') +
     (allDone ? '<div class="btns"><button class="primary big" data-act="hw" data-autofocus>오늘의 지구 숙제 받기 📮</button><button class="ghost" data-act="cert">수료증 만들기 🏅</button></div>'
       : '<div class="zone-list">' + ZONES.map(function (z) { var st = state.zones[z.id]; return '<button class="zl ' + (st.cleared ? 'done' : '') + '" data-walk="' + z.id + '" style="--zc:' + z.color + '"><span>' + z.icon + '</span><b>' + esc(z.name) + '</b><small>' + (st.cleared ? '깨끗해요 ✓' : esc(z.friend) + '에게 데려다줘') + '</small></button>'; }).join('') + '</div>') +
     '<div class="btns"><button class="ghost" data-act="ask">🐻‍❄️ 얼음이에게 묻기</button><button class="' + (tips ? 'primary big' : 'ghost') + '" data-act="close">' + (tips ? '알겠어, 출발! 🚀' : '닫기') + '</button></div>', { cls: 'earth' });
@@ -959,6 +1206,7 @@ $('#btnStart').addEventListener('click', function () {
   refreshTalk();
 });
 $('#fabBear').addEventListener('click', function () { SFX.init(); SFX.click(); openBear(); });
+$('#fabAI').addEventListener('click', function () { SFX.init(); SFX.click(); openAiLab(); });
 $('#fabWear').addEventListener('click', function () { SFX.init(); SFX.click(); openWardrobe(); });
 $('#fabPhoto').addEventListener('click', function () { SFX.init(); openPhoto(); });
 $('#fabJump').addEventListener('click', function () { SFX.init(); if (world) world.jump(); });
@@ -979,6 +1227,7 @@ function boot() {
       onTalk: function (t) { if (!modal.hidden || !$('#start').hidden) return; onTalk(t); },
       onUserGesture: function () { SFX.init(); },
       onSeed: function (id) { onSeed(id); },
+      onSpot: function (t) { if (!modal.hidden || !$('#start').hidden) return; handleSpot(t, true); },
       onJump: function () { SFX.boing(); }
     });
   } catch (e) {
@@ -988,6 +1237,11 @@ function boot() {
   world.setHat(state.hat || 'none');
   world.setAvatar(AVATARS[state.avatar]);
   world.seedsTaken(state.seeds);
+  ZONES.forEach(function (z) { var sp = state.zones[z.id].spots || {}; Object.keys(sp).forEach(function (id) { world.spotDone(id, true); }); }); // 체험 진행 불러오기
+  if (state.activeMission && !state.zones[state.activeMission].cleared) {
+    world.missionOn(state.activeMission);
+    if (state.activeMission === 'road' && (state.zones.road.spots || {})['t-bike']) world.bike(true);
+  } else state.activeMission = null;
   setInterval(function () { if (QUEST && QUEST.target === 'seed') world.setGuide(world.nextSeed()); }, 1500); // 씨앗 안내는 가장 가까운 씨앗으로 계속 바꿈
   ZONES.forEach(function (z) { var st = state.zones[z.id]; if (st.cleared) world.clearZone(z.id, true); else if (st.partial) world.removeSmog(z.id, st.partial); });
   updateHUD(true);
