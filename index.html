@@ -32,6 +32,7 @@
 <body>
 <canvas id="c" aria-label="체험관 3D 화면. 친구를 누르면 걸어가서 이야기해요."></canvas>
 <div id="labels" aria-hidden="true"></div>
+<div id="joyZone" aria-hidden="true"><div id="joy" class="idle"><div id="knob"></div></div></div>
 
 <header id="hud" hidden>
   <div class="hud-left">
@@ -63,6 +64,7 @@
   <button class="fab wear" id="fabWear"><span aria-hidden="true">👕</span><small>꾸미기</small></button>
   <button class="fab photo" id="fabPhoto"><span aria-hidden="true">📸</span><small>사진</small></button>
   <button class="fab jump" id="fabJump"><span aria-hidden="true">⬆️</span><small>점프</small></button>
+  <button class="fab more" id="fabMore" aria-expanded="false" aria-label="메뉴 열기"><span aria-hidden="true">☰</span><small>메뉴</small></button>
 </div>
 <div id="say" class="saybubble" role="status" hidden></div>
 <div id="effect" class="effect" role="status" hidden></div>

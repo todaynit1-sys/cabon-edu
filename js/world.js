@@ -673,7 +673,10 @@ function create(canvas, opts) {
   canvas.addEventListener('pointerup', function (e) {
     if (!down || paused) { down = null; return; }
     var moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 12) return;
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    handleTap(e.clientX, e.clientY);
+  });
+  function handleTap(cx, cy) {
+    ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
     var cur = currentSpots();
     var hits = ray.intersectObjects(targets.map(function (t) { return t.hit; }).concat(spotHits.filter(function (h) { return cur.indexOf(h.userData.spot) >= 0; })), false);
     if (hits.length) {
@@ -683,17 +686,20 @@ function create(canvas, opts) {
       pendingTalk = t; moveTarget = { x: t.pos.x, z: t.pos.z, stopR: t.r * 0.85 }; return;
     }
     if (ray.ray.intersectPlane(groundPlane, gp)) { var l = Math.hypot(gp.x, gp.z); if (l > ISLAND_R - 0.5) { gp.x *= (ISLAND_R - 0.5) / l; gp.z *= (ISLAND_R - 0.5) / l; } moveTarget = { x: gp.x, z: gp.z, stopR: 0.3 }; pendingTalk = null; ping(gp.x, gp.z); }
-  });
+  }
+  var joy = { x: 0, y: 0, mag: 0 };
   var pingM = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.4, 24), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false })); pingM.rotation.x = -Math.PI / 2; pingM.visible = false; scene.add(pingM); var pingT = 0;
   function ping(x, z) { pingM.position.set(x, 0.08, z); pingM.visible = true; pingT = 0.6; }
   function readInput() {
     var ix = 0, iz = 0;
     if (keys.KeyA || keys.ArrowLeft) ix -= 1; if (keys.KeyD || keys.ArrowRight) ix += 1; if (keys.KeyW || keys.ArrowUp) iz -= 1; if (keys.KeyS || keys.ArrowDown) iz += 1;
+    var km = Math.hypot(ix, iz); if (km > 1) { ix /= km; iz /= km; }
+    ix += joy.x; iz += joy.y;
     var mag = Math.hypot(ix, iz);
-    if (mag > 0.05) { moveTarget = null; pendingTalk = null; ix /= mag; iz /= mag; mag = 1; }
+    if (mag > 0.08) { moveTarget = null; pendingTalk = null; if (mag > 1) { ix /= mag; iz /= mag; mag = 1; } }
     else if (moveTarget) { var dx = moveTarget.x - player.pos.x, dz = moveTarget.z - player.pos.z, d = Math.hypot(dx, dz); if (d < moveTarget.stopR) { moveTarget = null; ix = iz = mag = 0; } else { mag = Math.min(1, d / 1.2); ix = dx / d * mag; iz = dz / d * mag; } }
     else mag = 0;
-    return { ix: ix, iz: iz, mag: mag, run: !!(keys.ShiftLeft || keys.ShiftRight) };
+    return { ix: ix, iz: iz, mag: mag, run: !!(keys.ShiftLeft || keys.ShiftRight) || joy.mag > 0.92 };
   }
 
   /* ---------------- 카메라 ---------------- */
@@ -815,7 +821,9 @@ function create(canvas, opts) {
     setClean: function (k, instant) { cleanTarget = clamp(k, 0, 1); if (instant) { clean = cleanTarget; applyClean(); } },
     popSmog: popSmog, removeSmog: removeSmogInstant, clearZone: clearZone, celebrate: celebrate, cheer: cheer,
     ambient: function (mode) { ambient = mode || null; ambT = 0; if (mode) { var d = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)); ambA = Math.atan2(d.x, d.z); } },
-    pause: function (b) { paused = !!b; if (paused) { moveTarget = null; pendingTalk = null; keys = {}; } },
+    setJoy: function (x, y, m) { joy.x = paused ? 0 : x; joy.y = paused ? 0 : y; joy.mag = paused ? 0 : m; },
+    tap: function (x, y) { if (!paused) handleTap(x, y); },
+    pause: function (b) { paused = !!b; if (paused) { joy.x = joy.y = joy.mag = 0; } if (paused) { moveTarget = null; pendingTalk = null; keys = {}; } },
     focus: function (id) { if (!id) { focusPos = null; return; } if (id === 'me') { focusPos = new THREE.Vector3(player.pos.x, -1.7, player.pos.z + 0.4); return; } var t = targets.find(function (x) { return x.id === id; }); focusPos = t ? new THREE.Vector3(t.pos.x * 0.7 + player.pos.x * 0.3, t.type === 'earth' ? 0.2 : -1.0, t.pos.z * 0.7 + player.pos.z * 0.3 + 1.6) : null; },
     near: function () { return near; },
     pos: function () { return { x: player.pos.x, z: player.pos.z }; },

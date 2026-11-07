@@ -372,3 +372,85 @@ body.mung-on #hud, body.mung-on #fabs, body.mung-on #labels, body.mung-on #say, 
 .mung-mode span { font-size: 26px; } .mung-mode b { font-family: var(--cute); font-weight: 400; font-size: 18px; } .mung-mode small { font-size: 12px; color: var(--muted); }
 .mung-mode.on { border-color: var(--green); background: #effae9; box-shadow: 0 3px 0 var(--green); }
 @media (prefers-reduced-motion: reduce) { .mung-breath i { animation-duration: 14s; } }
+
+/* ===== 📱 모바일 최적화 ===== */
+/* 조이스틱 (터치 기기에서만) */
+#joyZone { position: fixed; left: 0; bottom: 0; width: 55%; height: 50%; z-index: 3; touch-action: none; display: none; }
+.touch #joyZone { display: block; }
+body:has(#start:not([hidden])) #joyZone { display: none; }
+#joy { position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: calc(24px + env(safe-area-inset-bottom)); width: 116px; height: 116px; border-radius: 50%; background: rgba(255,255,255,.3); border: 1.5px solid rgba(255,255,255,.8); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); transition: opacity .2s; }
+#joy.idle { opacity: .5; }
+#knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255,255,255,.95); box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+#joy.run #knob { background: #ffd45c; }
+.touch.moving #hud { opacity: .35; transition: opacity .3s; }
+#hud { transition: opacity .45s; }
+/* 메뉴 접기 버튼: 데스크톱에서는 숨김 */
+.fab.more { display: none; background: #24414a; }
+.fab.more span { color: #fff; } .fab.more small { color: #e8f3f6; }
+/* 안내 목록: 아이콘 + 글을 한 덩어리로 (좁은 화면에서 글이 세로로 쪼개지던 문제) */
+.tips li { display: block; position: relative; padding-left: 40px; }
+.tips li > span { position: absolute; left: 11px; top: 8px; }
+
+@media (max-width: 640px) {
+  /* HUD: 한 줄로 작게 */
+  #hud { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); gap: 6px; }
+  .hud-left { gap: 6px; }
+  .fever { padding: 5px 9px 5px 7px; gap: 7px; border-radius: 16px; }
+  .fever-face { font-size: 22px; }
+  .fever-title { font-size: 13px; } .fever-title b { margin-left: 4px; }
+  .fever-bar { height: 8px; margin-top: 3px; }
+  .fever-sub { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .quest { padding: 5px 7px 5px 9px; gap: 7px; border-radius: 16px; }
+  .quest .q-ico { font-size: 20px; }
+  .quest .q-txt small { display: none; }
+  .quest .q-txt b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .quest .q-txt { min-width: 0; }
+  .quest .q-go { padding: 4px 8px; font-size: 11px; }
+  .stamps { padding: 4px 6px; gap: 4px; order: 3; width: auto; justify-content: flex-start; align-self: flex-start; }
+  .stamps .stamp-slot { display: none; }
+  .stamps .counter { font-size: 12px; padding: 2px 6px; }
+  .tools { gap: 6px; } .tools .tool { width: 38px; min-width: 38px; height: 38px; padding: 0; font-size: 17px; border-radius: 14px; }
+  /* 오른쪽 버튼: 메뉴 하나로 접기 */
+  .fabs { right: max(10px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); gap: 7px; }
+  .fab { width: 52px; height: 52px; }
+  .fab span { font-size: 21px; } .fab small { font-size: 10px; }
+  .fab.more { display: flex; }
+  #fabs .fab:not(.more) { display: none; }
+  .fabs-open #fabs .fab { display: flex; animation: popin .25s cubic-bezier(.3, 1.5, .5, 1) both; }
+  .touch #fabJump { display: none !important; }
+  /* 말 걸기 버튼 · 말풍선 · 효과 패널 */
+  .talk-btn { font-size: 18px; padding: 12px 22px; bottom: calc(22px + env(safe-area-inset-bottom)); max-width: calc(100% - 150px); overflow: hidden; text-overflow: ellipsis; }
+  .touch .talk-btn { left: auto; right: calc(76px + env(safe-area-inset-right)); transform: none; }
+  .saybubble { left: 10px; right: 72px; max-width: none; bottom: calc(84px + env(safe-area-inset-bottom)); padding: 9px 11px; }
+  .saybubble p { font-size: 13.5px; }
+  .effect { left: 8px; right: 8px; width: auto; padding: 9px 11px; border-radius: 16px; }
+  .fx-head b { font-size: 15px; } .fx-text { font-size: 13px; margin: 4px 0 2px; }
+  .chain { gap: 3px 4px; margin: 5px 0 2px; } .chain .ch { font-size: 11.5px; padding: 2px 7px; }
+  .fx-co2 { font-size: 12px; padding: 6px 8px; } .fx-co2 > b { font-size: 13.5px; }
+  .fx-meter { font-size: 11.5px; }
+  .hint { white-space: normal; width: calc(100% - 32px); text-align: center; font-size: 13px; bottom: calc(150px + env(safe-area-inset-bottom)); }
+  /* 큰 선택 버튼: 아이콘 | 제목·설명 (글자가 세로로 쪼개지지 않게) */
+  .pick-big { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 1px; align-items: center; text-align: left; padding: 10px 12px; }
+  .pick-big > span { grid-row: 1 / span 2; font-size: 28px; }
+  .pick-big > b, .pick-big > small { grid-column: 2; min-width: 0; }
+  .pick-big > b { font-size: 16px; line-height: 1.25; }
+  .pick-big > small { font-size: 12px; line-height: 1.35; }
+  .pick-big.mission > b { font-size: 17px; }
+  .choice2, .choice3 { grid-template-columns: 1fr !important; }
+  .lab { grid-template-columns: 1fr !important; gap: 8px; }
+  .lab .pick-big > span { font-size: 30px; }
+  .mcard { padding: 14px 14px 12px; }
+  .mcard .who b { font-size: 17px; } .mcard .who small { font-size: 11.5px; }
+  .say { font-size: 15px; }
+  .zone-list { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .zl small { font-size: 11px; }
+  .mung-modes { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  /* HUD 배치: 왼쪽(지구 열·할 일) | 오른쪽(소리·설정 / 별·씨앗) */
+  #hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "left tools" "left stamps"; align-items: start; column-gap: 6px; row-gap: 5px; }
+  #hud .hud-left { grid-area: left; min-width: 0; }
+  #hud .tools { grid-area: tools; justify-self: end; margin: 0; }
+  #hud .stamps { grid-area: stamps; justify-self: end; order: 0; }
+  .fever, .quest { width: 100%; box-sizing: border-box; }
+}

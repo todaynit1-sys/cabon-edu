@@ -1038,6 +1038,32 @@ function openAiSettings() {
     if (act === 'save') { GQAI.save(form()); toast(GQAI.ready() ? '✨ AI를 연결했어요' : 'AI 설정을 저장했어요 (아직 연결 안 됨)'); openMenu(); }
   };
 }
+/* ------------------------------------------------------------
+   📱 모바일: 떠다니는 조이스틱(mamo-ex2 방식) · 접히는 메뉴
+   ------------------------------------------------------------ */
+var IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+document.documentElement.classList.toggle('touch', IS_TOUCH);
+(function () {
+  var zone = $('#joyZone'), el = $('#joy'), knob = $('#knob'), id = null, c = { x: 0, y: 0 }, st = null, R = 46;
+  function move(e) { var dx = e.clientX - c.x, dy = e.clientY - c.y, d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; } var m = Math.min(1, d / R); if (world) world.setJoy(dx / R, dy / R, m); knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; el.classList.toggle('run', m > 0.92); document.documentElement.classList.toggle('moving', m > 0.15); }
+  zone.addEventListener('pointerdown', function (e) {
+    if (id !== null || !modal.hidden || !$('#start').hidden) return; id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (er) {} e.preventDefault(); SFX.init();
+    var zr = zone.getBoundingClientRect(), cx = Math.max(zr.left + 58, Math.min(zr.right - 58, e.clientX)), cy = Math.max(zr.top + 58, Math.min(zr.bottom - 58, e.clientY));
+    c = { x: cx, y: cy }; st = { x: e.clientX, y: e.clientY, t: performance.now() }; el.style.left = (cx - zr.left - 58) + 'px'; el.style.top = (cy - zr.top - 58) + 'px'; el.style.bottom = 'auto'; el.classList.remove('idle'); move(e);
+  });
+  zone.addEventListener('pointermove', function (e) { if (e.pointerId === id) move(e); });
+  function end(e) {
+    if (e.pointerId !== id) return; id = null; if (world) world.setJoy(0, 0, 0); knob.style.transform = ''; el.classList.remove('run'); el.style.left = el.style.top = el.style.bottom = ''; el.classList.add('idle'); document.documentElement.classList.remove('moving');
+    if (st && e.type === 'pointerup' && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 10 && performance.now() - st.t < 300 && world) world.tap(e.clientX, e.clientY); st = null;
+  }
+  zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
+  var more = $('#fabMore');
+  more.addEventListener('click', function (e) { e.stopPropagation(); SFX.init(); SFX.click(); var open = !document.documentElement.classList.contains('fabs-open'); document.documentElement.classList.toggle('fabs-open', open); more.setAttribute('aria-expanded', open); more.querySelector('span').textContent = open ? '✕' : '☰'; more.querySelector('small').textContent = open ? '닫기' : '메뉴'; });
+  function closeFabs() { if (!document.documentElement.classList.contains('fabs-open')) return; document.documentElement.classList.remove('fabs-open'); more.setAttribute('aria-expanded', 'false'); more.querySelector('span').textContent = '☰'; more.querySelector('small').textContent = '메뉴'; }
+  $('#fabs').addEventListener('click', function (e) { if (e.target.closest('.fab:not(.more)')) closeFabs(); });
+  document.addEventListener('pointerdown', function (e) { if (!e.target.closest('#fabs')) closeFabs(); });
+  if (IS_TOUCH) $('#hint').textContent = '👈 왼쪽 아래를 꾹 눌러 끌면 걸어요 · 친구나 땅을 톡 누르면 그리로 가요';
+})();
 function updateSoundBtn() { $('#btnSound').textContent = SFX.muted() ? '🔇' : '🔊'; }
 
 /* ------------------------------------------------------------
