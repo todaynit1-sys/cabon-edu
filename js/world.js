@@ -237,7 +237,17 @@ function create(canvas, opts) {
     if (o.acc === 'bow') { [-1, 1].forEach(function (s) { var w = mk(new THREE.SphereGeometry(0.075, 8, 6), '#ff6b8b', HR * 0.62 + s * 0.07, HY + HR * 0.78, 0.12, head); w.scale.set(1.2, 0.7, 0.6); }); mk(new THREE.SphereGeometry(0.035, 8, 6), '#e0476d', HR * 0.62, HY + HR * 0.78, 0.16, head); }
     return { root: root, body: body, head: head, eyes: eyes, legL: legs[0], legR: legs[1], armL: arms[0], armR: arms[1], phase: 0, blink: rand(1, 4), wave: 0, jump: 0, seed: rand(0, 9), land: 0 };
   }
-  function animPerson(rig, speed, dt) {
+  function animPerson(rig, speed, dt, ride) {
+    if (ride) { // 자전거: 안장에 앉아 페달 돌리기 · 핸들 잡기
+      rig.ride = (rig.ride || 0) + dt * (speed > 0.2 ? 1.2 + speed * 1.9 : 0); var cr = rig.ride;
+      rig.legL.rotation.x = -1.05 + Math.sin(cr) * 0.42; rig.legR.rotation.x = -1.05 + Math.sin(cr + Math.PI) * 0.42;
+      rig.armL.rotation.x = lerp(rig.armL.rotation.x, -1.25, 0.3); rig.armR.rotation.x = lerp(rig.armR.rotation.x, -1.25, 0.3); rig.armL.rotation.z = lerp(rig.armL.rotation.z, -0.18, 0.3); rig.armR.rotation.z = lerp(rig.armR.rotation.z, 0.18, 0.3);
+      rig.body.rotation.x = lerp(rig.body.rotation.x, 0.22, 0.2); rig.body.rotation.z = lerp(rig.body.rotation.z, Math.sin(cr) * 0.04 * Math.min(1, speed / 3), 0.2); rig.body.position.y = Math.abs(Math.sin(cr)) * 0.012; rig.body.scale.set(1, 1, 1);
+      rig.head.rotation.x = lerp(rig.head.rotation.x, -0.15, 0.2); rig.head.rotation.z = lerp(rig.head.rotation.z, 0, 0.2); rig.jump = 0; rig.wave = 0;
+      rig.blink -= dt; var sh = rig.blink < 0.12; rig.eyes.forEach(function (ey) { ey.scale.y = sh ? 0.12 : (ey.userData.sy || 1); }); if (rig.blink < 0) rig.blink = rand(2, 5.5);
+      return;
+    }
+    rig.body.rotation.x = lerp(rig.body.rotation.x, 0, 0.25); rig.head.rotation.x = lerp(rig.head.rotation.x, 0, 0.25);
     rig.phase += dt * (2.6 + speed * 1.55);
     var a = Math.min(1, speed / 4) * 0.8, sn = Math.sin(rig.phase), s = sn * a, bounce = Math.abs(sn);
     rig.legL.rotation.x = s * 0.95; rig.legR.rotation.x = -s * 0.95;
@@ -534,9 +544,28 @@ function create(canvas, opts) {
 
   /* 들고 다니는 물건 · 타는 탈것 */
   var carryG = new THREE.Group(); carryG.position.y = 2.25; var carryMesh = null;
-  var rideG = new THREE.Group(); rideG.visible = false; var riding = false;
-  [-0.42, 0.42].forEach(function (z) { var wh = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 16), mat('#2f3437')); wh.rotation.y = Math.PI / 2; wh.position.set(0, 0.3, z); rideG.add(wh); });
-  (function () { var f = box(0.07, 0.07, 0.9, '#7fcd6b', 0, 0.55, 0, rideG); f.rotation.x = -0.15; box(0.4, 0.06, 0.06, '#2f3437', 0, 0.85, 0.38, rideG); box(0.14, 0.05, 0.24, '#2f3437', 0, 0.68, -0.25, rideG); })();
+  var rideG = new THREE.Group(); rideG.visible = false; var riding = false, rideWheels = [], rideCrank = null;
+  (function () { // 자전거: 바퀴(살이 보이게 굴러감) · 프레임 · 안장 · 핸들 · 페달
+    var FR = '#3fae6b', DK = '#2f3437', SEAT = new THREE.Vector3(0, 0.74, -0.2), BB = new THREE.Vector3(0, 0.33, 0.02), HEAD = new THREE.Vector3(0, 0.84, 0.3), RA = new THREE.Vector3(0, 0.3, -0.44), FA = new THREE.Vector3(0, 0.3, 0.44);
+    function bar(a, b, t, c) { var len = a.distanceTo(b), m = new THREE.Mesh(new THREE.BoxGeometry(t, t, len), mat(c)); m.position.copy(a).add(b).multiplyScalar(0.5); m.lookAt(b); m.castShadow = true; rideG.add(m); return m; }
+    [RA, FA].forEach(function (p) {
+      var w = new THREE.Group(); w.position.copy(p); rideG.add(w); rideWheels.push(w);
+      var tire = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.045, 8, 22), mat(DK)); tire.rotation.y = Math.PI / 2; tire.castShadow = true; w.add(tire);
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.012, 6, 22), mat('#c9d1d6')); rim.rotation.y = Math.PI / 2; w.add(rim);
+      for (var k = 0; k < 4; k++) { var sp = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.47, 0.012), mat('#c9d1d6')); sp.rotation.x = k * Math.PI / 4; w.add(sp); }
+      var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.08, 10), mat('#c9d1d6')); hub.rotation.z = Math.PI / 2; w.add(hub);
+    });
+    bar(SEAT, BB, 0.05, FR); bar(SEAT.clone().add(new THREE.Vector3(0, -0.06, 0.02)), HEAD.clone().add(new THREE.Vector3(0, -0.06, 0)), 0.05, FR); bar(BB, HEAD.clone().add(new THREE.Vector3(0, -0.12, 0)), 0.055, FR);
+    bar(BB, RA, 0.035, FR); bar(SEAT.clone().add(new THREE.Vector3(0, -0.04, 0)), RA, 0.035, FR); bar(HEAD, FA, 0.04, FR);
+    bar(HEAD, HEAD.clone().add(new THREE.Vector3(0, 0.1, -0.02)), 0.04, DK);
+    var hb = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.035, 0.035), mat(DK)); hb.position.copy(HEAD).add(new THREE.Vector3(0, 0.1, -0.02)); rideG.add(hb);
+    [-1, 1].forEach(function (s) { var gr = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.1, 8), mat('#ff8a7a')); gr.rotation.z = Math.PI / 2; gr.position.copy(hb.position).add(new THREE.Vector3(s * 0.24, 0, 0)); rideG.add(gr); });
+    var seat = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.04, 0.24), mat(DK)); seat.position.copy(SEAT).add(new THREE.Vector3(0, 0.03, 0)); rideG.add(seat);
+    var bk = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.2), mat('#e9c46a')); bk.position.copy(FA).add(new THREE.Vector3(0, 0.62, 0.02)); rideG.add(bk); // 앞 바구니
+    rideCrank = new THREE.Group(); rideCrank.position.copy(BB); rideG.add(rideCrank);
+    var gear = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 14), mat('#c9d1d6')); gear.rotation.z = Math.PI / 2; gear.position.x = 0.06; rideCrank.add(gear);
+    [-1, 1].forEach(function (s) { var arm = new THREE.Group(); arm.position.x = s * 0.09; arm.rotation.x = s > 0 ? 0 : Math.PI; rideCrank.add(arm); var c = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.16, 0.025), mat(DK)); c.position.y = -0.08; arm.add(c); var pd = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.06), mat('#555b61')); pd.position.set(s * 0.04, -0.16, 0); arm.add(pd); });
+  })();
   function spotFx(s, instant) {
     if (s.fx) s.fx(instant);
     if (s.kind === 'trash' && s.mesh && instant) scene.remove(s.mesh);
@@ -676,7 +705,8 @@ function create(canvas, opts) {
     if (sp > 0.3) player.heading = angLerp(player.heading, Math.atan2(player.vel.x, player.vel.z), 1 - Math.exp(-14 * dt));
     if (danceT > 0) { danceT -= dt; danceBeat -= dt; player.heading += dt * 5.5; if (danceBeat <= 0) { danceBeat = 0.55; if (player.rig) player.rig.jump = 0.5; bear.jump = 0.55; burst(player.pos.x + rand(-0.6, 0.6), 2.4, player.pos.z + rand(-0.6, 0.6), ['#b8a1ff', '#ff8fab', '#ffd166', '#8fd3ff'], 4); } }
     playerObj.position.copy(player.pos); playerObj.rotation.y = player.heading;
-    if (player.rig) { animPerson(player.rig, sp, dt); player.rig.root.position.y = riding ? 0.3 : 0; }
+    if (player.rig) { animPerson(player.rig, sp, dt, riding); var rsc = player.rig.root.scale.y; player.rig.root.position.y = riding ? 0.77 - 0.5 * rsc - 0.06 : 0; player.rig.root.position.z = riding ? -0.2 : 0; }
+    if (riding) { var roll = sp * dt / 0.28; rideWheels.forEach(function (w) { w.rotation.x += roll; }); if (rideCrank && player.rig) rideCrank.rotation.x = player.rig.ride || 0; }
     if (pendingTalk && dist2(player.pos, pendingTalk.pos) < pendingTalk.r) { var t = pendingTalk; pendingTalk = null; moveTarget = null; player.vel.set(0, 0, 0); player.heading = Math.atan2(t.pos.x - player.pos.x, t.pos.z - player.pos.z); opts.onTalk && opts.onTalk(t); }
     seeds.forEach(function (s) { if (s.taken) return; s.body.rotation.y += dt * 1.6; s.body.position.y = 0.95 + Math.sin(T * 2.2 + s.seed) * 0.12; s.ring.scale.setScalar(1 + Math.sin(T * 3 + s.seed) * 0.08); if (dist2(player.pos, s.g.position) < 1.3) { takeSeed(s); opts.onSeed && opts.onSeed(s.id); } });
     if (guideTarget) { var gd = dist2(player.pos, guideTarget); guide.visible = gd > 4.5 && !paused; if (guide.visible) { guide.position.set(player.pos.x, 0, player.pos.z); guide.rotation.y = Math.atan2(guideTarget.x - player.pos.x, guideTarget.z - player.pos.z); gArrow.position.z = 1.7 + Math.sin(T * 5) * 0.15; } } else guide.visible = false;
