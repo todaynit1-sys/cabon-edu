@@ -173,7 +173,7 @@ var ADAPTERS = {
           else turns = [{ role: 'user', content: sys }].concat(turns);
         }
         return sample(turns, {
-          cache: false, signal: opts.signal,
+          cache: false, signal: opts.signal, modelTier: cfg.tier || 'quick',
           onText: function (u) { opts.onDelta && opts.onDelta(u.delta, u.text); }
         }).then(function (r) { return r.text; }, function (e) {
           if (e && e.code === 'cancelled') { var ab = new Error('cancelled'); ab.name = 'AbortError'; throw ab; }

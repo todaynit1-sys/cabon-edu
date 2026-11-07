@@ -16,7 +16,8 @@ var norm = TX.norm, dice = TX.dice, coverage = TX.coverage, sentences = TX.sente
 var CFG_KEY = 'gqm.ai', memKey = '';
 function loadCfg() {
   var c = {}; try { c = JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; } catch (e) { c = {}; }
-  var out = Object.assign({ provider: 'openai', baseUrl: '', model: '', apiKey: '', temperature: 0.5, maxTokens: 2200, keepKey: false, timeoutSec: 90 }, c);
+  var out = Object.assign({ provider: 'openai', baseUrl: '', model: '', apiKey: '', temperature: 0.5, maxTokens: 2200, keepKey: false, timeoutSec: 90 }, window.GQ_AI_DEFAULT || {}, c);
+  if (out.provider === 'claude-artifact') out.timeoutSec = Math.max(out.timeoutSec || 0, 300);
   if (!out.keepKey) out.apiKey = memKey || out.apiKey || '';
   return out;
 }

@@ -15,7 +15,7 @@ function setPath(o, p, v) { var ks = p.split('.'), last = ks.pop(), t = ks.reduc
 function aiText() { var c = G.loadCfg(); if (!LLM.isReady(c)) return { cls: 'off', txt: '⚠️ AI 연결 안 됨 · 눌러서 설정' }; return { cls: 'on', txt: '✨ AI: ' + (c.model || c.provider) + (c.provider === 'webllm' ? ' (브라우저)' : '') }; }
 function updatePill() { var a = aiText(); $('#aiPill').textContent = a.txt; $('#aiPill').className = 'pill ' + a.cls; }
 function openAi(thenRun) {
-  var c = G.loadCfg(), presets = LLM.PRESETS.filter(function (p) { return p.id !== 'artifact'; }), fresh = !c.baseUrl && !c.model;
+  var c = G.loadCfg(), presets = LLM.PRESETS.filter(function (p) { return p.id !== 'artifact' || (window.GQ_AI_DEFAULT && window.GQ_AI_DEFAULT.provider === 'claude-artifact'); }), fresh = !c.baseUrl && !c.model;
   $('#mcard').innerHTML = '<h3>AI 모델 연결 <span class="badge">모델 비종속</span></h3><p class="fine">담당자가 쓰는 메이커에서만 AI를 씁니다. 학생용 체험관은 AI 없이 동작해요.' + (fresh ? ' <b>AI 환경비서에 쓰는 Gemini 무료 키를 아래 "API 키"에 붙여 넣고 저장하면 끝이에요.</b>' : '') + '</p>' +
     '<label>빠른 설정<select id="aiPreset"><option value="">직접 입력</option>' + presets.map(function (p) { return '<option value="' + p.id + '">' + esc(p.label) + '</option>'; }).join('') + '</select></label><p class="fine" id="presetNote"></p>' +
     '<label>연결 방식<select id="aiProv">' + ['openai', 'anthropic', 'webllm'].map(function (p) { return '<option ' + (c.provider === p ? 'selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>' +
@@ -149,7 +149,10 @@ var RENDER = {
     return G.STAGES.map(function (s) { var r = report.stages[s[0]]; if (!r || !r.dropped.length) return ''; return '<div class="blk"><h3>' + esc(s[1]) + ' <span class="tag">걸러짐 ' + r.dropped.length + '</span></h3><ul class="dropped">' + r.dropped.map(function (d) { return '<li>' + esc(d.what) + ' — <b>' + esc(d.reason) + '</b></li>'; }).join('') + '</ul></div>'; }).join('') || '<p class="fine">걸러진 항목이 없어요.</p>';
   }
 };
-$('#btnPreview').onclick = function () { var p = PK.normalize(pack); p.id = pack.id = pack.id || p.id; PK.save(p); window.open('index.html?pack=' + encodeURIComponent(p.id), '_blank'); toast('이 기기에 임시 저장하고 새 탭에서 열었어요'); };
+var APP_URL = window.GQ_APP_URL || '';
+function openTab(url) { var a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+function openPack(p) { if (APP_URL) { openTab(PK.encodeLink(p, APP_URL)); return; } PK.save(p); openTab('index.html?pack=' + encodeURIComponent(p.id)); }
+$('#btnPreview').onclick = function () { var p = PK.normalize(pack); p.id = pack.id = pack.id || p.id; openPack(p); toast(APP_URL ? '새 탭에서 3D 체험관을 열었어요' : '이 기기에 임시 저장하고 새 탭에서 열었어요'); };
 $('#btnToPublish').onclick = function () {
   var need = TABS.filter(function (t) { return t[0] !== 'dropped' && !approved[t[0]]; });
   if (need.length && !confirm('아직 검토하지 않은 탭이 있어요: ' + need.map(function (t) { return t[1]; }).join(', ') + '\n그래도 발행 단계로 갈까요?')) return;
@@ -159,9 +162,9 @@ $('#btnToPublish').onclick = function () {
 
 /* ---------------- 4. 발행 ---------------- */
 function finalPack() { var p = PK.normalize(pack); p.id = PK.slug($('#pubId').value.trim() || p.id); p.title = $('#pubTitle').value.trim() || p.title; p.meta = Object.assign({}, pack.meta, { approved: pack.meta.approved, published: new Date().toISOString().slice(0, 10) }); return p; }
-$('#btnPublish').onclick = function () { var p = finalPack(); if (!PK.save(p)) { toast('이 기기 저장 공간이 부족해요. JSON 내보내기를 쓰세요.'); return; } pack = p; refreshLocal(); window.open('index.html?pack=' + encodeURIComponent(p.id), '_blank'); $('#pubNote').textContent = '저장했어요. 체험관 주소: index.html?pack=' + p.id + ' (같은 기기에서 열림)'; toast('💾 저장하고 체험관을 열었어요'); };
+$('#btnPublish').onclick = function () { var p = finalPack(); if (APP_URL) { pack = p; try { PK.save(p); } catch (e) {} openPack(p); $('#pubNote').textContent = '새 탭에서 체험관을 열었어요. 같은 링크를 복사해 학생들에게 나눠 줄 수 있어요(🔗 링크 복사).'; toast('🌏 체험관을 열었어요'); return; } if (!PK.save(p)) { toast('이 기기 저장 공간이 부족해요. JSON 내보내기를 쓰세요.'); return; } pack = p; refreshLocal(); openTab('index.html?pack=' + encodeURIComponent(p.id)); $('#pubNote').textContent = '저장했어요. 체험관 주소: index.html?pack=' + p.id + ' (같은 기기에서 열림)'; toast('💾 저장하고 체험관을 열었어요'); };
 $('#btnCopyLink').onclick = function () {
-  var p = finalPack(), link = PK.encodeLink(p);
+  var p = finalPack(), link = PK.encodeLink(p, APP_URL || undefined);
   navigator.clipboard.writeText(link).then(function () { toast('🔗 링크를 복사했어요 (' + link.length.toLocaleString() + '자). 다른 기기에서도 열려요.'); }, function () { prompt('링크를 복사하세요', link); });
   $('#qr').innerHTML = ''; if (link.length <= 2300 && window.QRCode) { new QRCode($('#qr'), { text: link, width: 160, height: 160 }); $('#pubNote').textContent = 'QR을 찍으면 체험관이 열려요.'; } else $('#pubNote').textContent = '팩이 커서 QR에는 담기지 않아요 (' + link.length.toLocaleString() + '자). 링크는 그대로 쓸 수 있고, 팩 JSON을 웹서버에 올리면 index.html?pack=<주소>로 짧은 링크·QR을 만들 수 있어요.';
 };
