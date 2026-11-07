@@ -66,7 +66,7 @@ var SFX = (function () {
   };
 })();
 var TTS = {
-  on: pref('gq.tts', '1') === '1', voice: null,
+  on: pref('gq.tts2', '0') === '1', voice: null,
   pick: function () { if (!('speechSynthesis' in window)) return; var vs = speechSynthesis.getVoices(); this.voice = vs.find(function (v) { return /ko/i.test(v.lang) && /Google|SunHi|Heami|Yuna|InJoon/i.test(v.name); }) || vs.find(function (v) { return /ko/i.test(v.lang); }) || null; },
   speak: function (text, who) {
     if (!this.on || !('speechSynthesis' in window) || SFX.muted()) return;
@@ -939,11 +939,11 @@ function openPhoto() {
 function openMenu() {
   openModal('<div class="who" style="--zc:#7d93a6"><span class="ava">⚙️</span><div><b>설정</b><small>보호자·선생님용</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
     '<div class="set-sec"><h3>학년</h3><div class="pick" data-k="grade">' + GRADES.map(function (g) { return '<button class="pk ' + (state.grade === g.id ? 'on' : '') + '" data-v="' + g.id + '">' + g.label + '</button>'; }).join('') + '</div></div>' +
-    '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 대사를 소리 내어 읽어 주기</label><label class="tg"><input type="checkbox" id="optBgm" ' + (pref('gq.bgm', '1') === '1' ? 'checked' : '') + '> 잔잔한 배경음악</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
+    '<div class="set-sec"><h3>소리</h3><label class="tg"><input type="checkbox" id="optTTS" ' + (TTS.on ? 'checked' : '') + '> 대사를 소리 내어 읽어 주기 <small>(브라우저 음성 · 기본 꺼짐)</small></label><label class="tg"><input type="checkbox" id="optBgm" ' + (pref('gq.bgm', '1') === '1' ? 'checked' : '') + '> 잔잔한 배경음악</label><label class="tg"><input type="checkbox" id="optMute" ' + (SFX.muted() ? 'checked' : '') + '> 모든 소리 끄기</label></div>' +
     aiSettingsHTML() +
     '<div class="set-sec"><h3>이 체험관</h3><p class="fine"><b>' + esc(P.title) + '</b>' + (P.subtitle ? ' · ' + esc(P.subtitle) : '') + (P.org ? ' · ' + esc(P.org) : '') + '<br>' + (P.meta.model ? '✨ AI 체험관 메이커로 생성(' + esc(P.meta.model) + ') · 담당자 승인 ' + (P.meta.approved ? '완료' : '전') : '📗 ' + esc(P.meta.note || '사람이 만든 기본 체험관')) + '</p><div class="btns left"><button class="ghost" data-act="packs">다른 체험관 열기</button><a class="ghost btnlike" href="maker.html">🛠️ 메이커 열기</a></div></div>' +
     '<div class="set-sec"><h3>보호자·선생님 안내</h3><ul class="fine list"><li>로그인이 없고, 이름·학교 같은 개인정보를 받지 않아요. 진행 기록은 이 기기 브라우저에만 저장돼요.</li><li>체험 화면에서는 AI가 실시간으로 말하지 않아요. 수업·문제·설명은 모두 메이커에서 미리 만들어 담당자가 확인한 글이에요.</li><li>내용은 체험용 예시이며 실제 운영 전 감수가 필요해요.</li></ul><div class="btns left"><button class="ghost danger" data-act="reset">처음부터 다시 하기</button></div></div>', { cls: 'menu' });
-  $('#optTTS').onchange = function () { TTS.on = this.checked; setPref('gq.tts', this.checked ? '1' : '0'); };
+  $('#optTTS').onchange = function () { TTS.on = this.checked; setPref('gq.tts2', this.checked ? '1' : '0'); };
   $('#optMute').onchange = function () { SFX.setMuted(this.checked); if (this.checked) TTS.stop(); updateSoundBtn(); };
   $('#optBgm').onchange = function () { setPref('gq.bgm', this.checked ? '1' : '0'); SFX.init(); SFX.bgm(this.checked); };
   mcard.onclick = function (e) {
@@ -1004,7 +1004,7 @@ var AV = {
   eye: [['round', '동글눈'], ['sparkle', '반짝눈'], ['smile', '웃는 눈'], ['sleepy', '졸린 눈'], ['wink', '윙크']],
   mouth: [['smile', '미소'], ['grin', '활짝'], ['cat', '고양이 입'], ['o', '동그란 입'], ['flat', '시크']],
   cheek: [['pink', '볼터치'], ['freckle', '주근깨'], ['none', '없음']],
-  style: [['short', '짧은 머리'], ['curly', '곱슬'], ['bob', '단발'], ['long', '긴 머리'], ['pony', '포니테일'], ['twin', '양갈래'], ['bun', '똥머리'], ['cap', '야구모자'], ['beanie', '비니']],
+  style: [['short', '짧은 머리'], ['side', '가르마'], ['spiky', '뾰족 머리'], ['curly', '곱슬'], ['bob', '단발'], ['long', '긴 머리'], ['pony', '포니테일'], ['twin', '양갈래'], ['bun', '똥머리'], ['cap', '야구모자'], ['beanie', '비니']],
   hair: ['#2a221d', '#5a3d2b', '#8a6a4a', '#c9a15a', '#6b6f78', '#a8452f', '#e6d3a3', '#4a6fa5'],
   top: [['tee', '반팔 티'], ['long', '긴팔 티'], ['hoodie', '후드티'], ['shirt', '셔츠·넥타이'], ['uniform', '교복'], ['vest', '조끼']],
   shirt: ['#5cb85c', '#3b82c4', '#f2c14e', '#f39aa5', '#8e6bbf', '#e4572e', '#2b3a67', '#f3f3f3', '#2b2f36', '#7fc8f8', '#a3d977', '#ff9f68'],
@@ -1023,10 +1023,19 @@ var PRESETS = [
   ['🎧 고등학생 후드', { age: 'teen', body: 'm', skin: '#d19a6b', eye: 'sleepy', mouth: 'flat', cheek: 'none', style: 'curly', hair: '#2a221d', top: 'hoodie', shirt: '#2b2f36', bottom: 'pants', pants: '#3d5a80', acc: 'headphones' }],
   ['🎒 고등학생 캐주얼', { age: 'teen', body: 'f', skin: '#e9b48e', eye: 'smile', mouth: 'cat', cheek: 'pink', style: 'long', hair: '#a8452f', top: 'long', shirt: '#f39aa5', bottom: 'pants', pants: '#c9b48a', acc: 'backpack' }]
 ];
+var STYLE_BY = { m: ['short', 'side', 'spiky', 'curly', 'cap', 'beanie'], f: ['long', 'bob', 'pony', 'twin', 'bun', 'cap', 'beanie'] };
+function genderFix(L) { // 남녀가 또렷하게 보이도록 성별에 맞지 않는 머리·치마·리본은 바꿈
+  var b = L.body === 'f' ? 'f' : 'm';
+  if (STYLE_BY[b].indexOf(L.style) < 0) L.style = b === 'f' ? 'long' : 'short';
+  if (b === 'm' && L.bottom === 'skirt') L.bottom = 'pants';
+  if (b === 'm' && L.acc === 'bow') L.acc = 'none';
+  return L;
+}
+function optsFor(key, list, d) { if (key === 'style') return list.filter(function (o) { return STYLE_BY[d.body === 'f' ? 'f' : 'm'].indexOf(o[0]) >= 0; }); if (d.body !== 'f' && (key === 'bottom' || key === 'acc')) return list.filter(function (o) { return o[0] !== 'skirt' && o[0] !== 'bow'; }); return list; }
 function okLook(o) { // 저장된 값은 허용 목록 안에서만
   var L = {}; o = o || {};
   AV_KEYS.forEach(function (k) { var vals = AV[k].map(function (x) { return Array.isArray(x) ? x[0] : x; }); L[k] = vals.indexOf(o[k]) >= 0 ? o[k] : PRESETS[2][1][k]; });
-  return L;
+  return genderFix(L);
 }
 function sameLook(a, b) { return AV_KEYS.every(function (k) { return a[k] === b[k]; }); }
 function shadeHex(hex, k) { var n = parseInt(hex.slice(1), 16), r = Math.min(255, Math.round(((n >> 16) & 255) * k)), g = Math.min(255, Math.round(((n >> 8) & 255) * k)), b = Math.min(255, Math.round((n & 255) * k)); return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1); }
@@ -1040,7 +1049,7 @@ function lookSVG(L, cls) {
   if (L.style === 'long') s += '<rect x="' + hx0 + '" y="' + cy + '" width="' + (2 * Rh) + '" height="' + (R + 24) + '" rx="10" fill="' + L.hair + '"/>';
   if (L.style === 'bob') s += '<rect x="' + hx0 + '" y="' + cy + '" width="' + (2 * Rh) + '" height="' + (R + 8) + '" rx="9" fill="' + L.hair + '"/>';
   if (L.style === 'twin') [-1, 1].forEach(function (d) { s += '<rect x="' + (50 + d * (R + 5) - 5) + '" y="' + (cy - 2) + '" width="10" height="26" rx="5" fill="' + L.hair + '"/><circle cx="' + (50 + d * (R + 1)) + '" cy="' + (cy - 2) + '" r="3" fill="#ff8fab"/>'; });
-  if (L.style === 'pony') s += '<rect x="' + (50 + R - 6) + '" y="' + (cy - R + 2) + '" width="10" height="26" rx="5" fill="' + L.hair + '" transform="rotate(-25 ' + (50 + R - 1) + ' ' + (cy - R + 2) + ')"/>';
+  if (L.style === 'pony' || (f && (L.style === 'cap' || L.style === 'beanie'))) s += '<rect x="' + (50 + R - 6) + '" y="' + (cy - R + 2) + '" width="10" height="26" rx="5" fill="' + L.hair + '" transform="rotate(-25 ' + (50 + R - 1) + ' ' + (cy - R + 2) + ')"/>';
   if (L.style === 'bun') s += '<circle cx="50" cy="' + (cy - R - 2) + '" r="8" fill="' + L.hair + '"/>';
   if (L.acc === 'headphones') s += '<path d="M' + (hx0 - 2) + ' ' + cy + ' A' + (Rh + 2) + ' ' + (Rh + 2) + ' 0 0 1 ' + (hx1 + 2) + ' ' + cy + '" fill="none" stroke="#2b2f36" stroke-width="4"/>';
   if (L.bottom === 'skirt') s += '<path d="M' + (50 - bw / 2) + ' ' + lt + ' L' + (50 - bw / 2 - 6) + ' ' + (lt + 13) + ' L' + (50 + bw / 2 + 6) + ' ' + (lt + 13) + ' L' + (50 + bw / 2) + ' ' + lt + 'z" fill="' + L.pants + '"/>';
@@ -1056,6 +1065,8 @@ function lookSVG(L, cls) {
   else if (L.style === 'beanie') s += '<path d="M' + hx0 + ' ' + (cy - 1) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 1) + 'z" fill="' + L.pants + '"/><rect x="' + (hx0 - 1) + '" y="' + (cy - 6) + '" width="' + (2 * Rh + 2) + '" height="6" rx="3" fill="' + L.pants + '"/><circle cx="50" cy="' + (cy - Rh - 2) + '" r="4" fill="#fff"/>';
   else {
     s += '<path d="M' + hx0 + ' ' + (cy - 4) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 4) + ' L' + hx1 + ' ' + (cy - 1) + ' Q50 ' + (cy + 3) + ' ' + hx0 + ' ' + (cy - 1) + 'z" fill="' + L.hair + '"/>';
+    if (L.style === 'side') s += '<ellipse cx="' + (50 - R * 0.3) + '" cy="' + (cy - R + 5) + '" rx="' + (R * 0.55) + '" ry="' + (R * 0.22) + '" fill="' + L.hair + '" transform="rotate(-14 ' + (50 - R * 0.3) + ' ' + (cy - R + 5) + ')"/>';
+    if (L.style === 'spiky') for (var sk = -2; sk <= 2; sk++) { var sx = 50 + sk * R * 0.36; s += '<path d="M' + (sx - 5) + ' ' + (cy - R + 6) + ' L' + sx + ' ' + (cy - R - 7 + Math.abs(sk) * 2) + ' L' + (sx + 5) + ' ' + (cy - R + 6) + 'z" fill="' + L.hair + '"/>'; }
     if (L.style === 'curly') for (var k = 0; k < 7; k++) { var a = Math.PI + (k / 6) * Math.PI; s += '<circle cx="' + (50 + Math.cos(a) * Rh).toFixed(1) + '" cy="' + (cy - 2 + Math.sin(a) * Rh).toFixed(1) + '" r="5" fill="' + L.hair + '"/>'; }
   }
   [-1, 1].forEach(function (d, i) {
@@ -1063,6 +1074,10 @@ function lookSVG(L, cls) {
     if (kind === 'smile') s += '<path d="M' + (x - 3.5) + ' ' + (y + 1) + ' q3.5 -5 7 0" fill="none" stroke="' + INK + '" stroke-width="1.8" stroke-linecap="round"/>';
     else if (kind === 'sleepy') s += '<ellipse cx="' + x + '" cy="' + (y + 0.5) + '" rx="3" ry="1.5" fill="' + INK + '"/>';
     else { var big = kind === 'sparkle'; s += '<ellipse cx="' + x + '" cy="' + y + '" rx="' + (big ? 3.3 : 2.6) + '" ry="' + (big ? 4.2 : 3.4) + '" fill="' + INK + '"/><circle cx="' + (x + 1.2) + '" cy="' + (y - 1.5) + '" r="' + (big ? 1.3 : 0.9) + '" fill="#fff"/>'; }
+  });
+  [-1, 1].forEach(function (d, i) { var x = 50 + d * 8, wink = L.eye === 'wink' && i === 0;
+    if (f) { s += '<path d="M' + (x - 4) + ' ' + (cy - 5) + ' q4 -3.2 8 0" fill="none" stroke="' + shadeHex(L.hair, 0.85) + '" stroke-width="1.3" stroke-linecap="round"/>'; if (!(L.eye === 'smile' || L.eye === 'sleepy' || wink)) s += '<path d="M' + (x + d * 2.6) + ' ' + (cy - 1.8) + ' l' + (d * 2.4) + ' -1.8 M' + (x + d * 3.2) + ' ' + (cy) + ' l' + (d * 2.4) + ' -0.6" stroke="#1d1d22" stroke-width="1.1" stroke-linecap="round"/>'; }
+    else s += '<path d="M' + (x - 4.5) + ' ' + (cy - 6 + d * 0.4) + ' L' + (x + 4.5) + ' ' + (cy - 6 - d * 0.4) + '" stroke="' + shadeHex(L.hair, 0.8) + '" stroke-width="2.6" stroke-linecap="round"/>';
   });
   if (L.cheek === 'pink') s += '<circle cx="37" cy="' + (cy + 6) + '" r="3.2" fill="#f5a3a3" opacity=".85"/><circle cx="63" cy="' + (cy + 6) + '" r="3.2" fill="#f5a3a3" opacity=".85"/>';
   else if (L.cheek === 'freckle') [-1, 1].forEach(function (d) { s += '<circle cx="' + (50 + d * 13) + '" cy="' + (cy + 6) + '" r=".9" fill="#c98a6b"/><circle cx="' + (50 + d * 15.5) + '" cy="' + (cy + 4.5) + '" r=".9" fill="#c98a6b"/><circle cx="' + (50 + d * 10.5) + '" cy="' + (cy + 4.8) + '" r=".9" fill="#c98a6b"/>'; });
@@ -1093,7 +1108,7 @@ function mountCreator(box, draft, onChange) {
     var groups = CZ_TABS.find(function (t) { return t[0] === tab; })[2];
     panel.innerHTML = groups.map(function (g) {
       if (g[0] === 'p') return '<div class="field"><span>' + g[1] + '</span><div class="mopts">' + PRESETS.map(function (p, i) { return '<button type="button" class="chip ' + (sameLook(draft, p[1]) ? 'on' : '') + '" data-p="' + i + '">' + esc(p[0]) + '</button>'; }).join('') + '</div></div>';
-      var kind = g[0], key = g[1], label = g[2], list = g[3];
+      var kind = g[0], key = g[1], label = g[2], list = kind === 'c' ? optsFor(g[1], g[3], draft) : g[3];
       if (kind === 's') return '<div class="field"><span>' + label + '</span><div class="swatches" data-key="' + key + '">' + list.map(function (c) { return '<button type="button" class="sw ' + (draft[key] === c ? 'on' : '') + '" data-v="' + c + '" style="background:' + c + '" aria-label="' + label + ' ' + c + '" aria-pressed="' + (draft[key] === c) + '"></button>'; }).join('') + '</div></div>';
       return '<div class="field"><span>' + label + '</span><div class="mopts" data-key="' + key + '">' + list.map(function (o) { return '<button type="button" class="chip ' + (draft[key] === o[0] ? 'on' : '') + '" data-v="' + o[0] + '" aria-pressed="' + (draft[key] === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
     }).join('');
@@ -1104,10 +1119,10 @@ function mountCreator(box, draft, onChange) {
   box.addEventListener('click', function (e) {
     var t = e.target.closest('[data-cztab]'); if (t) { tab = t.dataset.cztab; render(); return; }
     var p = e.target.closest('[data-p]'); if (p) { Object.assign(draft, PRESETS[+p.dataset.p][1]); changed(); return; }
-    var v = e.target.closest('[data-v]'), g = v && v.closest('[data-key]'); if (g) { draft[g.dataset.key] = v.dataset.v; changed(); }
+    var v = e.target.closest('[data-v]'), g = v && v.closest('[data-key]'); if (g) { draft[g.dataset.key] = v.dataset.v; genderFix(draft); changed(); }
   });
   render();
-  return { random: function () { AV_KEYS.forEach(function (k) { var pick = AV[k][Math.floor(Math.random() * AV[k].length)]; draft[k] = Array.isArray(pick) ? pick[0] : pick; }); changed(); } };
+  return { random: function () { AV_KEYS.forEach(function (k) { var pick = AV[k][Math.floor(Math.random() * AV[k].length)]; draft[k] = Array.isArray(pick) ? pick[0] : pick; }); var sl = STYLE_BY[draft.body === 'f' ? 'f' : 'm']; draft.style = sl[Math.floor(Math.random() * sl.length)]; genderFix(draft); changed(); } };
 }
 function renderStart() {
   $('#stTitle').textContent = P.title; $('#stSub').textContent = P.subtitle; $('#stLead').textContent = P.lead; document.title = 'AI 탄소중립 체험실 · ' + P.title;

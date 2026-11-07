@@ -205,6 +205,7 @@ function create(canvas, opts) {
     var HR = kid ? 0.46 : teen ? 0.4 : 0.42, HY = 0.36;
     var face = mk(new THREE.SphereGeometry(HR, 20, 16), o.skin, 0, HY, 0, head); face.scale.set(1.04, 0.96, 1);
     var sph2 = function (r, c, x, y, z, ps, pl, ts, tl) { return mk(new THREE.SphereGeometry(r, 18, 12, ps || 0, pl == null ? Math.PI * 2 : pl, ts || 0, tl == null ? Math.PI : tl), c, x, y, z, head); };
+    if ((o.style === 'cap' || o.style === 'beanie') && f) { var tlh = mk(cap(0.1, 0.3), o.hair, 0, HY - 0.08, -(HR + 0.07), head); tlh.rotation.x = 0.5; [-1, 1].forEach(function (s) { var sdh = mk(cap(0.075, 0.14), o.hair, s * (HR - 0.02), HY - 0.16, 0.02, head); sdh.scale.z = 0.8; }); }
     if (o.style === 'cap') { sph2(HR + 0.035, o.shirt, 0, HY + 0.02, 0, 0, Math.PI * 2, 0, Math.PI * 0.5); var bill = mk(new THREE.BoxGeometry(0.5, 0.04, 0.3), o.shirt, 0, HY + 0.03, HR + 0.02, head); bill.rotation.x = 0.12; sph2(HR + 0.012, o.hair, 0, HY, 0, Math.PI, Math.PI, Math.PI * 0.42, Math.PI * 0.3); }
     else if (o.style === 'beanie') { var bc = o.pants; sph2(HR + 0.04, bc, 0, HY + 0.03, 0, 0, Math.PI * 2, 0, Math.PI * 0.5); var rim = mk(new THREE.TorusGeometry(HR + 0.03, 0.05, 8, 20), bc, 0, HY + 0.03, 0, head); rim.rotation.x = Math.PI / 2; sph2(0.09, '#ffffff', 0, HY + HR + 0.1, 0); sph2(HR + 0.012, o.hair, 0, HY, 0, Math.PI, Math.PI, Math.PI * 0.42, Math.PI * 0.3); }
     else {
@@ -215,6 +216,8 @@ function create(canvas, opts) {
       if (o.style === 'pony') { var tl = mk(cap(0.11, 0.34), o.hair, 0, HY - 0.05, -(HR + 0.08), head); tl.rotation.x = 0.55; mk(new THREE.TorusGeometry(0.1, 0.03, 6, 12), '#ffd166', 0, HY + 0.12, -HR, head).rotation.x = 1.1; }
       if (o.style === 'twin') [-1, 1].forEach(function (s) { var tt = mk(cap(0.1, 0.3), o.hair, s * (HR + 0.05), HY - 0.2, -0.06, head); tt.rotation.z = s * 0.2; mk(new THREE.TorusGeometry(0.08, 0.025, 6, 12), '#ff8fab', s * (HR + 0.02), HY + 0.02, -0.04, head).rotation.y = Math.PI / 2; });
       if (o.style === 'bun') sph2(0.17, o.hair, 0, HY + HR + 0.03, -0.12);
+      if (o.style === 'side') { var sw = mk(new THREE.SphereGeometry(0.2, 12, 8), o.hair, -0.12, HY + HR * 0.72, 0.2, head); sw.scale.set(1.5, 0.42, 0.95); sw.rotation.z = 0.32; }
+      if (o.style === 'spiky') for (var q = 0; q < 7; q++) { var sa = (q / 7) * Math.PI * 2, sp = mk(new THREE.ConeGeometry(0.08, 0.2, 6), o.hair, Math.cos(sa) * (HR - 0.16), HY + HR * 0.86, Math.sin(sa) * (HR - 0.2) - 0.02, head); sp.rotation.set(Math.sin(sa) * 0.5, 0, -Math.cos(sa) * 0.5); }
       if (o.style === 'curly') for (var k = 0; k < 11; k++) { var a = (k / 11) * Math.PI * 2; sph2(0.13, o.hair, Math.cos(a) * (HR - 0.08), HY + HR * 0.67 + Math.sin(k * 1.7) * 0.05, Math.sin(a) * (HR - 0.12) - 0.05); }
     }
     var EZ = HR - 0.035, INK = '#1d1d22';
@@ -223,6 +226,11 @@ function create(canvas, opts) {
       if (kind === 'smile') { var se = mk(new THREE.TorusGeometry(0.05, 0.017, 6, 12, Math.PI), INK, x, HY - 0.005, EZ + 0.022, head); se.userData.sy = 1; return se; }
       var big = kind === 'sparkle', sy = kind === 'sleepy' ? 0.5 : 1.18; var e = mk(new THREE.SphereGeometry(big ? 0.077 : 0.062, 12, 10), INK, x, HY + 0.02, EZ, head); e.scale.set(0.85, sy, 0.55); e.userData.sy = sy;
       if (kind !== 'sleepy') mk(new THREE.SphereGeometry(big ? 0.027 : 0.02, 6, 6), '#ffffff', x + 0.022, HY + 0.06, EZ + 0.032, head); return e;
+    });
+    [-1, 1].forEach(function (s, ei) { var bx = s * 0.15, browC = shade(o.hair, 0.85);
+      if (f) { var br = mk(new THREE.TorusGeometry(0.055, 0.01, 4, 12, Math.PI * 0.62), browC, bx, HY + 0.075, EZ + 0.02, head); br.rotation.z = Math.PI * 0.19; br.castShadow = false;
+        var lashOk = !(o.eye === 'smile' || o.eye === 'sleepy' || (o.eye === 'wink' && ei === 0)); if (lashOk) [0, 1].forEach(function (k) { var ls = mk(new THREE.BoxGeometry(0.034, 0.011, 0.01), '#1d1d22', bx + s * (0.058 + k * 0.008), HY + 0.075 - k * 0.022, EZ + 0.022, head); ls.rotation.z = s * (0.55 - k * 0.35); ls.castShadow = false; }); }
+      else { var bm = mk(new THREE.BoxGeometry(0.11, 0.03, 0.014), browC, bx, HY + 0.125, EZ + 0.02, head); bm.rotation.z = -s * 0.12; bm.castShadow = false; }
     });
     if (o.cheek === 'pink') [-1, 1].forEach(function (s) { var b = mk(new THREE.CircleGeometry(0.065, 14), '#f5a3a3', s * 0.25, HY - 0.08, HR - 0.07, head); b.rotation.y = s * 0.6; b.castShadow = false; });
     else if (o.cheek === 'freckle') [-1, 1].forEach(function (s) { [[0, 0], [0.05, 0.03], [-0.04, 0.035]].forEach(function (d) { var fr = mk(new THREE.CircleGeometry(0.012, 6), '#c98a6b', s * (0.24 + d[0]), HY - 0.07 + d[1], HR - 0.06, head); fr.rotation.y = s * 0.6; fr.castShadow = false; }); });
