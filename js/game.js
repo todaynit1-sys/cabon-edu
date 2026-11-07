@@ -510,7 +510,7 @@ function calcItems(ans) {
   var kgOf = function (o) { return o.kg != null ? o.kg : (o.perKm || 0) * km * 2; };
   return C.questions.filter(function (q) { return !q.km && ans[q.id] != null; }).map(function (q) {
     var o = q.options[ans[q.id]], kg = kgOf(o), best = q.bestIdx != null ? q.options[q.bestIdx] : q.options.slice().sort(function (a, b) { return kgOf(a) - kgOf(b); })[0], bk = kgOf(best);
-    return { q: q, opt: o, kg: r2(kg), save: r2(Math.max(0, kg - bk)) };
+    return { q: q, opt: o, kg: r2(kg), save: r2(Math.max(0, kg - bk)), days: q.days || 365 };
   });
 }
 function openCalc() {
@@ -530,15 +530,15 @@ function openCalc() {
     };
   }
   function result() {
-    var items = calcItems(ans), day = r2(items.reduce(function (s, x) { return s + x.kg; }, 0)), year = Math.round(day * 365), tree = C.factors.tree, trees = Math.round(year / tree * 10) / 10;
-    var chg = items.filter(function (x) { return x.save >= 0.01; }).sort(function (a, b) { return b.save - a.save; }).slice(0, 3).map(function (x) { var y = Math.round(x.save * 365); return Object.assign(x, { year: y, trees: Math.round(y / tree * 10) / 10 }); });
+    var items = calcItems(ans), day = r2(items.reduce(function (s, x) { return s + x.kg; }, 0)), year = Math.round(items.reduce(function (s, x) { return s + x.kg * x.days; }, 0)), tree = C.factors.tree, trees = Math.round(year / tree * 10) / 10;
+    var chg = items.filter(function (x) { return x.save >= 0.01; }).sort(function (a, b) { return b.save * b.days - a.save * a.days; }).slice(0, 3).map(function (x) { var y = Math.round(x.save * x.days); return Object.assign(x, { year: y, trees: Math.round(y / tree * 10) / 10 }); });
     var maxKg = Math.max.apply(null, items.map(function (x) { return x.kg; }).concat([0.01]));
     state.carbon = { day: day, year: year, date: today() }; save();
     var evs = items.map(function (x) { return x.q.ev; }).concat([C.treeEv]).filter(function (id, k, a) { return id && CARD[id] && a.indexOf(id) === k; });
     var aiOn = window.GQAI && GQAI.ready();
     var fallback = chg.length ? '가장 크게 줄일 수 있는 건 "' + chg[0].q.best + '"이야. ' + chg[0].q.bestWhy + ' 이것만 바꿔도 1년에 약 ' + chg[0].year + 'kg을 줄일 수 있어. 오늘 하나만 골라서 해 볼래?' : '와, 이미 지구를 아끼는 생활을 하고 있구나! 지금 습관을 친구와 가족에게도 알려 주자.';
     openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">' + C.icon + '</span><div><b>' + esc(C.title) + ' 결과</b><small>' + esc(lvInfo().label) + ' · 오늘 고른 생활 기준</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
-      '<div class="calc-total"><div><small>내 하루 이산화탄소</small><b>' + day.toFixed(2) + '<i>kg</i></b></div><div><small>매일 이렇게 1년이면</small><b>' + year + '<i>kg</i></b></div><div><small>소나무가 1년 동안 빨아들이는 양으로</small><b>' + trees + '<i>그루</i></b></div></div>' +
+      '<div class="calc-total"><div><small>내 하루 이산화탄소</small><b>' + day.toFixed(2) + '<i>kg</i></b></div><div><small>1년으로 치면</small><b>' + year + '<i>kg</i></b></div><div><small>소나무가 1년 동안 빨아들이는 양으로</small><b>' + trees + '<i>그루</i></b></div></div>' +
       '<ul class="calc-bars">' + items.map(function (x) { return '<li><span>' + esc(x.q.q.replace(/\s*\(.*\)$/, '')) + '</span><div class="bar"><i style="width:' + Math.max(2, Math.round(x.kg / maxKg * 100)) + '%"></i></div><b>' + x.kg.toFixed(2) + 'kg</b></li>'; }).join('') + '</ul>' +
       (chg.length ? '<div class="calc-chg"><b>🌱 이렇게 바꾸면</b>' + chg.map(function (x, k) { return '<label class="chg"><input type="radio" name="pledge" value="' + k + '"' + (k === 0 ? ' checked' : '') + '><span><b>' + esc(x.q.best) + '</b><small>1년 −' + x.year + 'kg · 소나무 ' + x.trees + '그루 몫</small></span></label>'; }).join('') + '</div>' : '') +
       '<div class="coach"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p id="coachText">' + esc(aiOn ? 'AI 탄소 코치가 네 결과를 보고 있어…' : fallback) + '</p><small class="aimark" id="coachNote">' + (aiOn ? '✨ AI 탄소 코치' : '📗 기본 코칭') + '</small></div></div>' +

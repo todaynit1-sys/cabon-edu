@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>[구동안내서]_수도권대기환경청_신현준</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
+  :root { --ink: #1f2d33; --muted: #5b6b72; --line: #c9d3d6; --head: #e9f3ee; --accent: #2f7d5b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; font-size: 9.6pt; line-height: 1.5; word-break: keep-all; }
+  h1 { font-size: 15pt; margin: 0 0 2mm; }
+  .sub { color: var(--muted); margin: 0 0 4mm; font-size: 9pt; }
+  table.form { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.form th, table.form td { border: 1px solid var(--line); padding: 2.2mm 2.6mm; vertical-align: top; text-align: left; }
+  table.form th { background: var(--head); font-weight: 700; }
+  table.form thead th { background: #d6e9df; text-align: center; }
+  ul, ol { margin: 0; padding-left: 4.5mm; }
+  li { margin: 0.6mm 0; }
+  code { font-family: Consolas, monospace; font-size: 8.6pt; background: #f2f5f6; padding: 0 1mm; border-radius: 1mm; }
+  .k { color: var(--accent); font-weight: 700; }
+  .tbl2 { width: 100%; border-collapse: collapse; margin: 1mm 0; font-size: 8.8pt; }
+  .tbl2 th, .tbl2 td { border: 1px solid #dde4e6; padding: 1mm 1.6mm; }
+  .tbl2 th { background: #f4f8f6; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm; margin-top: 2mm; }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; border: 1px solid var(--line); border-radius: 1.5mm; display: block; }
+  .shots figcaption { font-size: 8pt; color: var(--muted); margin-top: 0.8mm; }
+  .flow { margin: 0 0 1.6mm; }
+  .flow b.t { display: block; margin-bottom: 0.6mm; }
+  .page-break { break-before: page; }
+  .note { font-size: 8.4pt; color: var(--muted); }
+  .story h2 { font-size: 12pt; margin: 0 0 2mm; }
+  .story h3 { font-size: 10.2pt; margin: 3mm 0 1mm; color: var(--accent); }
+  .story p { margin: 0 0 1.6mm; }
+</style>
+</head>
+<body>
+<h1>[양식 2] 구동 안내서 — AI 탄소중립 체험실 (초록별 마을)</h1>
+<p class="sub">수도권대기환경청 · 신현준 · 2026 공공 AI 대전환 챌린지 세션1 · 3D 체험 + AI 선생님·AI 탄소 코치 + 교육자료로 체험 마을을 만드는 AI 메이커</p>
+
+<table class="form"><colgroup><col style="width:25mm"><col></colgroup>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><th>실행 환경</th><td>
+<ul>
+<li><b>OS</b>: Windows 10/11, macOS, ChromeOS, 태블릿·휴대폰 브라우저(화면을 누르면 걸어감)</li>
+<li><b>브라우저</b>: Chrome·Edge 최신판 권장(WebGL 필요). 별도 설치 프로그램 없음 — 빌드 과정 없는 정적 웹앱(HTML·CSS·JavaScript)</li>
+<li><b>네트워크</b>: 3D 엔진(three.js)·글꼴을 CDN에서 받으므로 인터넷 연결 필요</li>
+<li><b>권장 사양</b>: 내장 그래픽 노트북 이상(시험: Intel 내장 그래픽 노트북). 내 PC 실행 시 Node.js 18 이상(정적 파일 서버 용도만)</li>
+</ul></td></tr>
+<tr><th>설치·실행 절차</th><td>
+<ol>
+<li><b>접속 주소(설치 없음)</b>: 체험실 <code>https://cabon-edu.vercel.app</code> · 메이커(선생님·기관용) <code>https://cabon-edu.vercel.app/maker.html</code></li>
+<li><b>AI까지 바로 체험(공개시연판)</b>: claude.ai에 로그인한 브라우저로 체험실 <code>https://claude.ai/artifact/GU7dmLoC6MvctY1i7fQBvV</code>, 메이커 <code>https://claude.ai/artifact/4opTXXkvRze6FPHAM8bKv9</code>를 엽니다. 보는 사람의 Claude로 AI가 켜지며 키 입력이 없습니다(첫 AI 사용 때 "사용 허용"을 한 번 묻습니다).</li>
+<li><b>내 PC에서</b>: 공공 GitLab 저장소를 내려받아 폴더에서 <code>node tools/serve.js 8080</code> 실행 → <code>http://localhost:8080</code>(체험실), <code>/maker.html</code>(메이커). 아무 정적 서버(<code>npx serve .</code> 등)도 됩니다.</li>
+<li>시작 화면에서 학년(초등 저·고학년, 중학생, 고등학생)과 캐릭터를 고르고 <b>체험관으로 출발!</b>을 누릅니다.</li>
+</ol></td></tr>
+<tr><th>LLM 연결 설정</th><td>
+<ul>
+<li><b>구조(모델 비종속)</b>: 앱은 <code>js/llm.js</code>의 <code>GreenLLM.chat()</code> 하나만 부릅니다. 연결 방식만 바꾸면 모델이 바뀝니다 — <span class="k">openai</span>(OpenAI 호환 /v1/chat/completions: 행정안전부 AI 공통기반 게이트웨이·기관 vLLM·Ollama·LM Studio), <span class="k">anthropic</span>(Claude API), <span class="k">claude-artifact</span>(claude.ai 공개시연판 내장), <span class="k">webllm</span>(브라우저 안 모델).</li>
+<li><b>입력 위치</b>: 체험실 ⚙️ 설정 → ✨ AI 연결 → <b>AI 연결 설정</b> / 메이커 오른쪽 위 <b>AI 연결</b> 버튼. 연결 방식·주소(Base URL)·모델 이름·API 키를 넣고 <b>연결 테스트</b> → <b>저장</b>.</li>
+<li><b>공통기반 모델 예</b>: 연결 방식 <code>openai</code> · 주소 = 공통기반이 안내하는 OpenAI 호환 주소 · 모델 = <code>gemma</code>·<code>exaone</code>·<code>gpt-oss</code> 등 안내된 이름 · 키 = 발급 키. 로컬 예: <code>http://localhost:11434/v1</code> + <code>gemma3:12b</code>(Ollama).</li>
+<li><b>키 보관</b>: 브라우저 메모리에만 두고("이 기기에 키 저장"을 켠 경우에만 저장), 저장소·설정 파일에는 넣지 않습니다.</li>
+<li><b>구동 확인</b>: Claude(claude.ai 공개시연판) — 메이커 생성·AI 선생님·탄소 코치. 이전 버전에서 Gemma 4 E2B·Qwen 3.5 2B(브라우저 안 모델)로 문제 생성·검증 구동 확인. AI가 꺼져 있어도 체험·문제·설명은 검수된 기본 자료로 끝까지 진행됩니다.</li>
+</ul></td></tr>
+<tr><th>모의데이터 안내</th><td>
+<ul>
+<li>개인정보·민감자료 없음. 모두 공개 교육자료를 재구성한 체험용 자료입니다.</li>
+<li><code>packs/green.js</code> — 기본 체험 마을 팩(근거 카드 54장, 학년별 문제 56개, 체험 21개와 체험별 탄소 계수·계산식, 내 탄소 재기 문항). 앱이 자동으로 엽니다.</li>
+<li><code>js/samples.js</code> — 메이커 샘플 교육자료 2종(탄소중립 생활 실천, 물 절약). 메이커의 <b>샘플</b> 버튼으로 투입하거나, 다른 공개 자료를 본문 칸에 붙여 넣거나 .txt 파일로 엽니다.</li>
+<li>탄소 계수: 전력 0.4781kgCO₂/kWh(국가온실가스종합정보센터), 승용차 0.21kgCO₂/km(한국교통안전공단), 분리배출 1.5kgCO₂/kg(환경부), 소나무 1그루 연 6.6kg(산림청) — EcoSchool 계수표 참고.</li>
+</ul></td></tr>
+</tbody>
+</table>
+
+<table class="form page-break"><colgroup><col style="width:25mm"><col></colgroup>
+<tbody>
+<tr><th>기능 사용 순서</th><td>
+<div class="flow"><b class="t">흐름 1. 직접 체험하고 "내가 줄인 탄소" 보기 (학생)</b>
+<ol>
+<li>왼쪽 위 <b>다음 할 일 → 데려다줘</b> → 반짝이(반짝 에너지 집)에게 <b>체험하기</b>.</li>
+<li>노란 화살표를 따라가 아래 버튼으로 전등 끄기·TV 끄기·플러그 뽑기·에어컨 26℃ 맞추기·냉장고 닫기.</li>
+<li>할 때마다 <b>효과 패널</b>: 효과 사슬(전기 절약 → 발전소 연료 ↓ → 온실가스 ↓), <b>이 체험으로 줄인 탄소(예: 290g, 1년 106kg, 소나무 16그루 몫)</b>와 계산식, 지구 열 −n%. 위쪽 온도계 밑에 누적 합계가 쌓입니다.</li>
+<li>재활용 공장(줍고 분류)·숲(나무 심기)·등굣길(자전거) 체험 → 광장의 동글이에게 가면 <b>네 체험이 만든 변화</b> 보고서와 탄소 계산 근거 전체.</li>
+</ol></div>
+<div class="flow"><b class="t">흐름 2. 내 탄소 재기 + AI 탄소 코치 · AI 선생님 (학생, AI 연결 시)</b>
+<ol>
+<li>오른쪽 <b>🧮 탄소 재기</b> → 등교 수단·거리, 에어컨 온도, 플러그, 빈 방 불 5문항 → 하루·1년 CO₂, 소나무 환산, 바꾸면 줄어드는 양.</li>
+<li><b>AI 탄소 코치</b>가 가장 효과 큰 바꾸기를 코칭 — AI 문장 속 숫자를 계산 결과와 대조해 다르면 기본 코칭으로 바꿉니다 → <b>이 실천 약속하기</b>(다음 접속 때 "해 봤어?").</li>
+<li><b>📚 AI 배움터 → AI 선생님에게 묻기</b>: 질문 → 근거 카드 3장 안에서만 학년 눈높이로 답, 출처 표시. 이름·전화·학교는 AI로 보내기 전에 ○○로 가림. 문제를 틀리면 <b>고른 답에 맞춘 AI 다시 설명</b>.</li>
+</ol></div>
+<div class="flow"><b class="t">흐름 3. 교육자료로 새 체험 마을 만들기 (선생님·기관, AI 핵심 기능)</b>
+<ol>
+<li>메이커 → <b>샘플: 물 절약</b>(또는 교육자료 붙여 넣기) → 학년 수준 선택 → <b>✨ AI로 체험관 만들기</b>.</li>
+<li>단계표: 근거 카드 추출 → 마을 설계 → 체험 미션 → 학년별 문제 → AI 교차 검토 → 오답 설명 → 수업 → 실천 카드. 걸러진 항목은 이유와 함께 표시(원문 구절 대조·안전·중복).</li>
+<li>검토 탭에서 고치고 <b>검토 완료</b> → <b>발행</b> → 새 주제의 3D 마을이 열리고, 링크로 학생에게 나눠 줍니다.</li>
+</ol></div>
+<div class="shots">
+<figure><img src="img/02_experience_co2.png" alt="체험과 줄인 탄소"><figcaption>흐름 1 · 플러그 뽑기 체험 → 효과 사슬 + 줄인 탄소 290g(1년 106kg) + 누적</figcaption></figure>
+<figure><img src="img/03_calc.png" alt="내 탄소 재기 결과"><figcaption>흐름 2 · 내 탄소 재기 결과(AI 미연결 화면 = 기본 코칭)</figcaption></figure>
+<figure><img src="img/04_impact.png" alt="변화 보고서"><figcaption>흐름 1 · 광장 보고서: 실천 수·줄인 탄소·소나무 환산</figcaption></figure>
+<figure><img src="img/05_maker_review.png" alt="메이커 검토"><figcaption>흐름 3 · 메이커 검토 화면(체험 미션·효과 사슬·근거 카드)</figcaption></figure>
+</div>
+</td></tr>
+<tr><th>알려진 제약 사항</th><td>
+<ul>
+<li>근거 카드·문제·효과 문장은 공개 교육자료를 쉽게 고쳐 쓴 체험용 예시입니다. 계수는 공식 자료, TV·에어컨 등 기기 사용 전력량은 대략값으로 운영 전 감수가 필요합니다.</li>
+<li>claude.ai 공개시연판의 AI는 보는 사람의 Claude 계정을 씁니다(심사·시연용). 실제 운영은 공통기반·기관 서버 연결을 전제로 합니다. 학생 화면에는 18세 미만 이용을 제한하는 외부 API를 쓰지 않습니다.</li>
+<li>WebGL이 꺼진 브라우저는 3D가 열리지 않습니다. 탭을 뒤로 숨기면 움직임이 멈출 수 있습니다. 공개시연판에서는 인쇄·파일 저장(수료증·사진)을 숨겼습니다.</li>
+<li>생성 품질은 연결 모델에 따라 다르며(작은 모델일수록 많이 걸러짐), 걸러진 수와 이유는 메이커에 그대로 표시됩니다.</li>
+<li>라이선스: three.js 0.160.0·lz-string 1.5.0·qrcodejs 1.0.0(MIT), WebLLM 0.2.86(Apache-2.0), Pretendard·Jua 글꼴(SIL OFL 1.1) — 재배포 제한 구성요소 없음. 참고 개발물: 「푸른하늘 업무체험관」(3D 캐릭터·마을), 「AI 환경비서」(AI 연결 계층·BM25 근거 검색), EcoSchool(탄소 계수표).</li>
+</ul></td></tr>
+</tbody>
+</table>
+
+<section class="story page-break">
+<h2>개발 경위 요약</h2>
+<h3>문제 인식</h3>
+<p>탄소중립은 학교와 기관이 꾸준히 교육하지만, 대부분 책자·PDF·강의 형태라 학생이 "내 행동이 지구를 얼마나 바꾸는지"를 체감하기 어렵습니다. 고등학생도 자신이 하루에 이산화탄소를 얼마나 내보내는지, 플러그 하나·에어컨 1℃가 몇 kg인지 잘 모릅니다. 체험형 콘텐츠는 효과가 크지만, 수도권대기환경청의 「푸른하늘 업무체험관」을 직접 만들어 보니 3D 체험 하나를 기획·제작·검수하는 데 오랜 시간이 들었고, 주제가 바뀔 때마다 처음부터 다시 만들어야 했습니다.</p>
+<h3>접근 방식</h3>
+<p><b>① 체험과 숫자를 한 화면에.</b> 3D 마을에서 불 끄기·분리배출·나무 심기·자전거 등교를 직접 하면, 그 행동으로 줄인 탄소를 공식 계수로 바로 계산해 보여 줍니다(예: 플러그 뽑기 하루 290g → 1년 106kg, 소나무 16그루 몫). 학년을 초등 저·고학년, 중학생, 고등학생 4단계로 나눠 같은 체험도 수준에 맞는 원리와 수치로 설명합니다.</p>
+<p><b>② AI는 근거 안에서만, 그리고 검증한 뒤에.</b> AI 선생님은 질문과 가까운 근거 카드만 보고 답하고, AI 탄소 코치는 계산된 숫자만 쓰도록 하여 답의 숫자를 계산 결과와 자동 대조합니다. 개인정보는 AI로 보내기 전에 가리고, 안전·근거·숫자 검사를 통과하지 못한 답은 검수된 기본 설명으로 바꿉니다.</p>
+<p><b>③ 콘텐츠 제작을 AI로 — 메이커.</b> 선생님·기관 담당자가 공개 교육자료를 넣으면 AI가 근거 카드·체험 미션·학년별 문제·수업·실천 카드를 만들고, 원문 구절 대조·교차 검토로 걸러낸 뒤 담당자가 승인한 것만 발행합니다. 같은 3D 틀에 물 절약·미세먼지·산불 예방 등 다른 주제를 얹을 수 있어, 체험 콘텐츠 제작 기간을 줄이고 기관 간에 팩(JSON) 파일로 공유할 수 있습니다.</p>
+<h3>공공적 가치와 확산</h3>
+<p>로그인과 개인정보 수집 없이 링크 하나로 학교·가정에서 바로 쓰고, 진행 기록은 학생 기기에만 남습니다. 연결 모델을 바꿔 끼울 수 있게 만들어 행정안전부 AI 공통기반 모델로 이식할 수 있고, 메이커로 만든 팩은 다른 기관이 그대로 재사용할 수 있습니다. 지원을 받으면 공통기반 연결로 학생용 AI 기능을 상시 운영하고, 교육청·학교별 마을과 익명 실천 통계(약속·실천 새싹 수)로 확대할 계획입니다.</p>
+<p class="note">출품 산출물: 공공 GitLab 저장소(소스코드·README·실행 방법), 접속 주소, 공개시연판 링크, 시연영상.</p>
+</section>
+</body>
+</html>
