@@ -209,16 +209,51 @@ function create(canvas, opts) {
     if (o.style === 'cap') { sph2(HR + 0.035, o.shirt, 0, HY + 0.02, 0, 0, Math.PI * 2, 0, Math.PI * 0.5); var bill = mk(new THREE.BoxGeometry(0.5, 0.04, 0.3), o.shirt, 0, HY + 0.03, HR + 0.02, head); bill.rotation.x = 0.12; sph2(HR + 0.012, o.hair, 0, HY, 0, Math.PI, Math.PI, Math.PI * 0.42, Math.PI * 0.3); }
     else if (o.style === 'beanie') { var bc = o.pants; sph2(HR + 0.04, bc, 0, HY + 0.03, 0, 0, Math.PI * 2, 0, Math.PI * 0.5); var rim = mk(new THREE.TorusGeometry(HR + 0.03, 0.05, 8, 20), bc, 0, HY + 0.03, 0, head); rim.rotation.x = Math.PI / 2; sph2(0.09, '#ffffff', 0, HY + HR + 0.1, 0); sph2(HR + 0.012, o.hair, 0, HY, 0, Math.PI, Math.PI, Math.PI * 0.42, Math.PI * 0.3); }
     else {
-      var front = sph2(HR + 0.02, o.hair, 0, HY + 0.01, 0, 0, Math.PI * 2, 0, Math.PI * 0.44); front.rotation.x = -0.16;
-      sph2(HR + 0.015, o.hair, 0, HY, 0, Math.PI, Math.PI, 0, Math.PI * (o.style === 'bob' || o.style === 'long' ? 0.86 : 0.7));
+      var MALE_H = { short: 1, side: 1, spiky: 1, undercut: 1, waves: 1, curly: 1 }[o.style] && !f, HL = shade(o.hair, 1.22), HD = shade(o.hair, 0.8);
+      var band = function (r, c, phiC, phiW, t0, t1, y) { return sph2(r, c, 0, y == null ? HY : y, 0, phiC - phiW / 2, phiW, t0, t1 - t0); };
+      if (o.style === 'undercut') { // 투블럭: 옆·뒤는 짧게 밀고 윗머리만 풍성하게
+        var stub = '#' + new THREE.Color(o.skin).lerp(new THREE.Color(o.hair), 0.55).getHexString();
+        band(HR + 0.008, stub, Math.PI * 1.5, Math.PI * 1.05, Math.PI * 0.2, Math.PI * 0.56);
+        var topV = mk(new THREE.SphereGeometry(HR * 0.92, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), o.hair, 0, HY + HR * 0.42, 0.02, head); topV.scale.set(1.08, 0.72, 1.12);
+        var sweep = mk(new THREE.SphereGeometry(0.2, 14, 10), o.hair, 0.06, HY + HR * 0.82, 0.2, head); sweep.scale.set(1.7, 0.55, 0.9); sweep.rotation.z = -0.25;
+        var hi = mk(new THREE.SphereGeometry(0.12, 10, 8), HL, -0.08, HY + HR * 0.98, 0.06, head); hi.scale.set(1.4, 0.4, 1.1);
+      } else {
+        var front = sph2(HR + 0.02, o.hair, 0, HY + 0.01, 0, 0, Math.PI * 2, 0, Math.PI * (MALE_H ? 0.4 : 0.44)); front.rotation.x = -0.16;
+        sph2(HR + 0.015, o.hair, 0, HY, 0, Math.PI, Math.PI, 0, Math.PI * (o.style === 'bob' || o.style === 'long' ? 0.86 : MALE_H ? 0.66 : 0.7));
+      }
+      if (o.style === 'short' && !f) { // 크롭: 이마를 덮는 둥근 일자 앞머리 + 옆머리
+        band(HR + 0.035, o.hair, Math.PI * 0.5, Math.PI * 1.15, 0, Math.PI * 0.37);
+        for (var cq = -2; cq <= 2; cq++) { var ca = Math.PI * 0.5 + cq * 0.26, cn = mk(new THREE.ConeGeometry(0.05, 0.11, 5), o.hair, -Math.cos(ca) * (HR - 0.02) * 0.93, HY + 0.11, Math.sin(ca) * (HR - 0.02) * 0.93 + 0.02, head); cn.rotation.x = Math.PI + 0.35; }
+        [-1, 1].forEach(function (s) { var sb = mk(cap(0.06, 0.08), o.hair, s * (HR - 0.07), HY + 0.0, 0.1, head); sb.scale.set(0.55, 1, 0.75); });
+      }
+      if (o.style === 'side' && !f) { // 가르마: 한쪽으로 넘긴 볼륨 + 가르마 선 + 삐친 머리
+        var sw = mk(new THREE.SphereGeometry(0.22, 14, 10), o.hair, -0.1, HY + HR * 0.74, 0.17, head); sw.scale.set(1.65, 0.5, 1.05); sw.rotation.z = 0.36;
+        var sw2 = mk(new THREE.SphereGeometry(0.14, 12, 8), o.hair, -0.26, HY + HR * 0.4, 0.22, head); sw2.scale.set(0.8, 0.9, 0.8);
+        var pl = mk(new THREE.BoxGeometry(0.02, 0.012, 0.36), HD, 0.12, HY + HR * 0.97, 0.0, head); pl.rotation.z = -0.25; pl.castShadow = false;
+        [[-0.02, 0.0], [0.1, -0.1]].forEach(function (t) { var tf = mk(new THREE.ConeGeometry(0.045, 0.14, 5), o.hair, t[0], HY + HR + 0.03, t[1], head); tf.rotation.set(-0.5, 0, 0.4); });
+      }
+      if (o.style === 'spiky') { // 뾰족: 사방으로 뻗친 머리 + 앞으로 내린 뾰족 앞머리
+        for (var q = 0; q < 10; q++) { var sa = (q / 10) * Math.PI * 2, sp = mk(new THREE.ConeGeometry(0.095, 0.27, 6), o.hair, Math.cos(sa) * HR * 0.62, HY + HR * 0.72, Math.sin(sa) * HR * 0.58 - 0.02, head); sp.rotation.set(Math.sin(sa) * 0.95, 0, -Math.cos(sa) * 0.95); }
+        for (var q2 = 0; q2 < 4; q2++) { var sb2 = mk(new THREE.ConeGeometry(0.09, 0.26, 6), q2 % 2 ? HL : o.hair, (q2 - 1.5) * 0.13, HY + HR + 0.06, -0.04 + (q2 % 2) * 0.06, head); sb2.rotation.set(-0.2, 0, (q2 - 1.5) * -0.25); }
+        for (var q3 = -1; q3 <= 1; q3++) { var fq = mk(new THREE.ConeGeometry(0.06, 0.16, 5), o.hair, q3 * 0.13, HY + 0.2, HR - 0.02, head); fq.rotation.set(Math.PI * 0.62, 0, q3 * 0.3); }
+      }
+      if (o.style === 'waves') { // 웨이브: 크고 부드럽게 부푼 머리
+        for (var w = 0; w < 12; w++) { var wa = (w / 12) * Math.PI * 2; if (Math.sin(wa) > 0.75) continue; var wb = mk(new THREE.SphereGeometry(0.15, 12, 9), w % 3 ? o.hair : HL, Math.cos(wa) * HR * 0.72, HY + HR * 0.62 + Math.sin(w * 1.3) * 0.03, Math.sin(wa) * HR * 0.68 - 0.04, head); wb.scale.set(1, 0.85, 1); }
+        for (var w2 = 0; w2 < 5; w2++) mk(new THREE.SphereGeometry(0.16, 12, 9), w2 % 2 ? HL : o.hair, (w2 - 2) * 0.15, HY + HR * 0.98, -0.04 + Math.abs(w2 - 2) * -0.03, head);
+        for (var w3 = -1; w3 <= 1; w3++) { var wf = mk(new THREE.SphereGeometry(0.1, 10, 8), o.hair, w3 * 0.16, HY + 0.24, HR - 0.06, head); wf.scale.set(1.2, 0.7, 0.8); }
+        if (f) { var lb2 = mk(cap(0.27, 0.32), o.hair, 0, HY - 0.36, -0.16, head); lb2.scale.set(1.2, 1, 0.55); }
+      }
+      if (o.style === 'curly') { // 곱슬: 작은 곱슬이 머리 전체와 이마까지
+        for (var k = 0; k < 14; k++) { var a = (k / 14) * Math.PI * 2; sph2(0.1, k % 3 ? o.hair : HL, Math.cos(a) * HR * 0.8, HY + HR * 0.58 + Math.sin(k * 1.7) * 0.03, Math.sin(a) * HR * 0.76 - 0.04); }
+        for (var k2 = 0; k2 < 8; k2++) { var a2 = (k2 / 8) * Math.PI * 2; sph2(0.1, k2 % 2 ? o.hair : HL, Math.cos(a2) * HR * 0.45, HY + HR * 0.9, Math.sin(a2) * HR * 0.42 - 0.03); }
+        for (var k3 = -2; k3 <= 2; k3++) sph2(0.075, o.hair, k3 * 0.1, HY + 0.2 + Math.abs(k3) * 0.02, HR - 0.04 - Math.abs(k3) * 0.03);
+        if (f) { var lb3 = mk(cap(0.25, 0.26), o.hair, 0, HY - 0.32, -0.16, head); lb3.scale.set(1.2, 1, 0.55); }
+      }
       if (o.style === 'bob') [-1, 1].forEach(function (s) { var sd = mk(cap(0.1, 0.18), o.hair, s * (HR - 0.03), HY - 0.12, 0.02, head); sd.scale.z = 0.8; });
       if (o.style === 'long') { var lb = mk(cap(0.27, 0.3), o.hair, 0, HY - 0.35, -0.16, head); lb.scale.set(1.15, 1, 0.55); [-1, 1].forEach(function (s) { var sd = mk(cap(0.09, 0.3), o.hair, s * (HR - 0.02), HY - 0.25, 0.0, head); sd.scale.z = 0.8; }); }
       if (o.style === 'pony') { var tl = mk(cap(0.11, 0.34), o.hair, 0, HY - 0.05, -(HR + 0.08), head); tl.rotation.x = 0.55; mk(new THREE.TorusGeometry(0.1, 0.03, 6, 12), '#ffd166', 0, HY + 0.12, -HR, head).rotation.x = 1.1; }
       if (o.style === 'twin') [-1, 1].forEach(function (s) { var tt = mk(cap(0.1, 0.3), o.hair, s * (HR + 0.05), HY - 0.2, -0.06, head); tt.rotation.z = s * 0.2; mk(new THREE.TorusGeometry(0.08, 0.025, 6, 12), '#ff8fab', s * (HR + 0.02), HY + 0.02, -0.04, head).rotation.y = Math.PI / 2; });
       if (o.style === 'bun') sph2(0.17, o.hair, 0, HY + HR + 0.03, -0.12);
-      if (o.style === 'side') { var sw = mk(new THREE.SphereGeometry(0.2, 12, 8), o.hair, -0.12, HY + HR * 0.72, 0.2, head); sw.scale.set(1.5, 0.42, 0.95); sw.rotation.z = 0.32; }
-      if (o.style === 'spiky') for (var q = 0; q < 7; q++) { var sa = (q / 7) * Math.PI * 2, sp = mk(new THREE.ConeGeometry(0.08, 0.2, 6), o.hair, Math.cos(sa) * (HR - 0.16), HY + HR * 0.86, Math.sin(sa) * (HR - 0.2) - 0.02, head); sp.rotation.set(Math.sin(sa) * 0.5, 0, -Math.cos(sa) * 0.5); }
-      if (o.style === 'curly') for (var k = 0; k < 11; k++) { var a = (k / 11) * Math.PI * 2; sph2(0.13, o.hair, Math.cos(a) * (HR - 0.08), HY + HR * 0.67 + Math.sin(k * 1.7) * 0.05, Math.sin(a) * (HR - 0.12) - 0.05); }
     }
     var EZ = HR - 0.035, INK = '#1d1d22';
     var eyes = [-0.15, 0.15].map(function (x, i) {

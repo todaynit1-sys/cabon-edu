@@ -1004,7 +1004,7 @@ var AV = {
   eye: [['round', '동글눈'], ['sparkle', '반짝눈'], ['smile', '웃는 눈'], ['sleepy', '졸린 눈'], ['wink', '윙크']],
   mouth: [['smile', '미소'], ['grin', '활짝'], ['cat', '고양이 입'], ['o', '동그란 입'], ['flat', '시크']],
   cheek: [['pink', '볼터치'], ['freckle', '주근깨'], ['none', '없음']],
-  style: [['short', '짧은 머리'], ['side', '가르마'], ['spiky', '뾰족 머리'], ['curly', '곱슬'], ['bob', '단발'], ['long', '긴 머리'], ['pony', '포니테일'], ['twin', '양갈래'], ['bun', '똥머리'], ['cap', '야구모자'], ['beanie', '비니']],
+  style: [['short', '크롭 앞머리'], ['side', '가르마'], ['spiky', '뾰족 머리'], ['undercut', '투블럭'], ['waves', '웨이브'], ['curly', '곱슬'], ['bob', '단발'], ['long', '긴 머리'], ['pony', '포니테일'], ['twin', '양갈래'], ['bun', '똥머리'], ['cap', '야구모자'], ['beanie', '비니']],
   hair: ['#2a221d', '#5a3d2b', '#8a6a4a', '#c9a15a', '#6b6f78', '#a8452f', '#e6d3a3', '#4a6fa5'],
   top: [['tee', '반팔 티'], ['long', '긴팔 티'], ['hoodie', '후드티'], ['shirt', '셔츠·넥타이'], ['uniform', '교복'], ['vest', '조끼']],
   shirt: ['#5cb85c', '#3b82c4', '#f2c14e', '#f39aa5', '#8e6bbf', '#e4572e', '#2b3a67', '#f3f3f3', '#2b2f36', '#7fc8f8', '#a3d977', '#ff9f68'],
@@ -1023,7 +1023,7 @@ var PRESETS = [
   ['🎧 고등학생 후드', { age: 'teen', body: 'm', skin: '#d19a6b', eye: 'sleepy', mouth: 'flat', cheek: 'none', style: 'curly', hair: '#2a221d', top: 'hoodie', shirt: '#2b2f36', bottom: 'pants', pants: '#3d5a80', acc: 'headphones' }],
   ['🎒 고등학생 캐주얼', { age: 'teen', body: 'f', skin: '#e9b48e', eye: 'smile', mouth: 'cat', cheek: 'pink', style: 'long', hair: '#a8452f', top: 'long', shirt: '#f39aa5', bottom: 'pants', pants: '#c9b48a', acc: 'backpack' }]
 ];
-var STYLE_BY = { m: ['short', 'side', 'spiky', 'curly', 'cap', 'beanie'], f: ['long', 'bob', 'pony', 'twin', 'bun', 'cap', 'beanie'] };
+var STYLE_BY = { m: ['short', 'side', 'spiky', 'undercut', 'waves', 'curly', 'cap', 'beanie'], f: ['long', 'bob', 'pony', 'twin', 'bun', 'waves', 'curly', 'cap', 'beanie'] };
 function genderFix(L) { // 남녀가 또렷하게 보이도록 성별에 맞지 않는 머리·치마·리본은 바꿈
   var b = L.body === 'f' ? 'f' : 'm';
   if (STYLE_BY[b].indexOf(L.style) < 0) L.style = b === 'f' ? 'long' : 'short';
@@ -1063,11 +1063,17 @@ function lookSVG(L, cls) {
   s += '<circle cx="50" cy="' + cy + '" r="' + R + '" fill="' + L.skin + '"/>';
   if (L.style === 'cap') s += '<path d="M' + hx0 + ' ' + (cy - 1) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 1) + 'z" fill="' + L.shirt + '"/><rect x="44" y="' + (cy - 5) + '" width="' + (R + 9) + '" height="5" rx="2.5" fill="' + L.shirt + '"/>';
   else if (L.style === 'beanie') s += '<path d="M' + hx0 + ' ' + (cy - 1) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 1) + 'z" fill="' + L.pants + '"/><rect x="' + (hx0 - 1) + '" y="' + (cy - 6) + '" width="' + (2 * Rh + 2) + '" height="6" rx="3" fill="' + L.pants + '"/><circle cx="50" cy="' + (cy - Rh - 2) + '" r="4" fill="#fff"/>';
+  else if (L.style === 'undercut') {
+    var stb = shadeHex(L.hair, 1.9); s += '<path d="M' + hx0 + ' ' + (cy - 1) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 1) + ' L' + hx1 + ' ' + (cy + 1) + ' Q50 ' + (cy - 4) + ' ' + hx0 + ' ' + (cy + 1) + 'z" fill="' + stb + '" opacity=".75"/><path d="M' + (hx0 + 3) + ' ' + (cy - 8) + ' Q50 ' + (cy - Rh - 10) + ' ' + (hx1 - 2) + ' ' + (cy - 9) + ' Q' + (50 + 6) + ' ' + (cy - 12) + ' ' + (50 - 4) + ' ' + (cy - 6) + ' Q' + (hx0 + 8) + ' ' + (cy - 6) + ' ' + (hx0 + 3) + ' ' + (cy - 8) + 'z" fill="' + L.hair + '"/><path d="M' + (50 - 6) + ' ' + (cy - Rh + 4) + ' q8 -3 14 2" stroke="' + shadeHex(L.hair, 1.3) + '" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  }
   else {
     s += '<path d="M' + hx0 + ' ' + (cy - 4) + ' A' + Rh + ' ' + Rh + ' 0 0 1 ' + hx1 + ' ' + (cy - 4) + ' L' + hx1 + ' ' + (cy - 1) + ' Q50 ' + (cy + 3) + ' ' + hx0 + ' ' + (cy - 1) + 'z" fill="' + L.hair + '"/>';
-    if (L.style === 'side') s += '<ellipse cx="' + (50 - R * 0.3) + '" cy="' + (cy - R + 5) + '" rx="' + (R * 0.55) + '" ry="' + (R * 0.22) + '" fill="' + L.hair + '" transform="rotate(-14 ' + (50 - R * 0.3) + ' ' + (cy - R + 5) + ')"/>';
-    if (L.style === 'spiky') for (var sk = -2; sk <= 2; sk++) { var sx = 50 + sk * R * 0.36; s += '<path d="M' + (sx - 5) + ' ' + (cy - R + 6) + ' L' + sx + ' ' + (cy - R - 7 + Math.abs(sk) * 2) + ' L' + (sx + 5) + ' ' + (cy - R + 6) + 'z" fill="' + L.hair + '"/>'; }
-    if (L.style === 'curly') for (var k = 0; k < 7; k++) { var a = Math.PI + (k / 6) * Math.PI; s += '<circle cx="' + (50 + Math.cos(a) * Rh).toFixed(1) + '" cy="' + (cy - 2 + Math.sin(a) * Rh).toFixed(1) + '" r="5" fill="' + L.hair + '"/>'; }
+    var hl2 = shadeHex(L.hair, 1.25);
+    if (L.style === 'short' && !f) { s += '<path d="M' + (50 - Rh) + ' ' + (cy - 2) + ' Q50 ' + (cy - Rh - 6) + ' ' + (50 + Rh) + ' ' + (cy - 2) + ' L' + (50 + Rh - 3) + ' ' + (cy - 5) + ' l-3 3 -4 -3 -4 3 -4 -3 -4 3 -4 -3 -4 3 -4 -3 -4 3 -3 -3z" fill="' + L.hair + '"/>'; }
+    if (L.style === 'side' && !f) { s += '<ellipse cx="' + (50 - R * 0.28) + '" cy="' + (cy - R + 6) + '" rx="' + (R * 0.62) + '" ry="' + (R * 0.28) + '" fill="' + L.hair + '" transform="rotate(-16 ' + (50 - R * 0.28) + ' ' + (cy - R + 6) + ')"/><circle cx="' + (50 - R + 3) + '" cy="' + (cy - 5) + '" r="5" fill="' + L.hair + '"/><path d="M' + (50 + R * 0.3) + ' ' + (cy - R - 1) + ' l3 7" stroke="' + shadeHex(L.hair, 0.7) + '" stroke-width="1.2"/><path d="M' + (50 - 2) + ' ' + (cy - R - 2) + ' l-3 -5 l5 3" fill="' + L.hair + '"/>'; }
+    if (L.style === 'spiky') { for (var sk = -3; sk <= 3; sk++) { var sx = 50 + sk * R * 0.3; s += '<path d="M' + (sx - 5) + ' ' + (cy - R + 7 + Math.abs(sk)) + ' L' + (sx + sk * 1.5) + ' ' + (cy - R - 9 + Math.abs(sk) * 2.2) + ' L' + (sx + 5) + ' ' + (cy - R + 7 + Math.abs(sk)) + 'z" fill="' + (sk % 2 ? L.hair : hl2) + '"/>'; } [-1, 1].forEach(function (d) { s += '<path d="M' + (50 + d * Rh - d * 2) + ' ' + (cy - 8) + ' l' + (d * 6) + ' -2 l' + (-d * 3) + ' 6z" fill="' + L.hair + '"/>'; }); s += '<path d="M44 ' + (cy - 7) + ' l3 5 l3 -5 l3 5 l3 -5z" fill="' + L.hair + '"/>'; }
+    if (L.style === 'waves') { for (var wv = 0; wv < 9; wv++) { var wa = Math.PI * 1.05 + (wv / 8) * Math.PI * 0.9; s += '<circle cx="' + (50 + Math.cos(wa) * (Rh + 1)).toFixed(1) + '" cy="' + (cy - 3 + Math.sin(wa) * (Rh + 1)).toFixed(1) + '" r="7" fill="' + (wv % 3 ? L.hair : hl2) + '"/>'; } s += '<circle cx="43" cy="' + (cy - 7) + '" r="4.5" fill="' + L.hair + '"/><circle cx="52" cy="' + (cy - 8) + '" r="4.5" fill="' + L.hair + '"/>'; }
+    if (L.style === 'curly') { for (var k = 0; k < 11; k++) { var a = Math.PI * 1.02 + (k / 10) * Math.PI * 0.96; s += '<circle cx="' + (50 + Math.cos(a) * Rh).toFixed(1) + '" cy="' + (cy - 2 + Math.sin(a) * Rh).toFixed(1) + '" r="4.6" fill="' + (k % 3 ? L.hair : hl2) + '"/>'; } for (var k4 = -2; k4 <= 2; k4++) s += '<circle cx="' + (50 + k4 * 4.5) + '" cy="' + (cy - 7 + Math.abs(k4)) + '" r="3" fill="' + L.hair + '"/>'; }
   }
   [-1, 1].forEach(function (d, i) {
     var x = 50 + d * 8, y = cy + 1, kind = L.eye === 'wink' ? (i === 0 ? 'smile' : 'round') : L.eye;
