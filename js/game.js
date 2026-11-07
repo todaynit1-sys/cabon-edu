@@ -258,7 +258,7 @@ function startMission(zone) {
       SFX.click(); closeModal();
       if (carrying && state.activeMission && state.activeMission !== zone && world) { world.dropCarried(carrying); carrying = null; }
       if (state.activeMission && ZMAP[state.activeMission] && ZMAP[state.activeMission].template === 'ride' && zone !== state.activeMission && world) world.bike(false);
-      state.activeMission = zone; save(); if (world) world.missionOn(zone);
+      state.activeMission = zone; save(); if (world) world.missionOn(zone); grpShare('start', zone, '');
       if (z.template === 'ride' && state.zones[zone].spots[M.spots[0].id] && world) world.bike(true);
       updateHUD();
       showSay(zone, z.template === 'sort' ? '바닥에 떨어진 물건을 찾아 가까이 가 봐! 노란 화살표가 알려 줄 거야.' : z.template === 'ride' ? '정류장 옆에 있는 ' + M.vehicle + josa(M.vehicle, '으로', '로') + ' 가 봐!' : '노란 화살표가 떠 있는 곳으로 가면 아래에 버튼이 생겨. 눌러서 직접 해 봐!');
@@ -279,6 +279,7 @@ function completeSpot(zone, id) {
   var d = spotDef(id); if (world) world.spotDone(id);
   if (!st.cleared) { var before = st.partial; st.partial = Math.min(5, Math.max(st.partial, Math.round(missionDoneCount(zone) / missionTotal(zone) * 5))); for (var k = before; k < st.partial; k++) if (world) world.popSmog(zone); }
   save(); SFX.correct(); if (world) world.cheer(); showSay(zone, d.say, 8000); updateHUD(); showEffect(zone, d, Math.round((cleanLevel() - k0) * 100));
+  grpShare('spot', zone, id);
   if (missionDoneCount(zone) >= missionTotal(zone) && !st.cleared) setTimeout(function () { missionComplete(zone); }, 2600);
 }
 function openAsk(zone, d) {
@@ -1073,7 +1074,7 @@ function isRude(s) { var t = String(s || '').toLowerCase().replace(/[\s\d.,!?~^*
 var PRIV_RE = /(01[016789][\s.-]?\d{3,4}[\s.-]?\d{4})|([\w.+-]+@[\w-]+\.[\w.]+)|(\d{6}[\s-]?[1-4]\d{6})/;
 function softMsg(s) { s = String(s || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); return isRude(s) ? '♡♡♡' : s.replace(new RegExp(PRIV_RE.source, 'g'), '***'); }
 function safeNick(s) { var n = String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 10); return !n || isRude(n) || PRIV_RE.test(n) ? '친구' : n; }
-var MP = { on: false, peers: {}, seenChat: {}, seenEmo: {}, nick: '', room: '', unread: 0, chatOpen: false, lastChat: 0, follow: '', followers: [], tick: 0 };
+var MP = { on: false, peers: {}, seenChat: {}, seenEmo: {}, seenG: {}, nick: '', room: '', unread: 0, chatOpen: false, lastChat: 0, follow: '', followers: [], tick: 0 };
 function mpStatusText() { var n = Object.keys(MP.peers).length; return MP.on ? (GQNet.status() === 'on' ? '👥 ' + (MP.room || '우리반') + ' · ' + (n + 1) + '명' : '👥 연결 중…') : ''; }
 var NICK_A = ['초록', '하늘', '햇살', '바람', '새싹', '구름', '별빛', '푸른'], NICK_B = ['곰', '토끼', '다람쥐', '강아지', '고양이', '펭귄', '여우', '부엉이'];
 function randomNick() { return NICK_A[Math.floor(Math.random() * NICK_A.length)] + NICK_B[Math.floor(Math.random() * NICK_B.length)] + (10 + Math.floor(Math.random() * 90)); }
@@ -1114,6 +1115,7 @@ function mpPeers(map) {
     if (world) world.peerSet(id, { look: d.l, x: d.x, z: d.z, h: d.h, name: nm, sub: sub });
     if (d.c && d.c.t && d.c.t !== MP.seenChat[id]) { var first = !(id in MP.seenChat); MP.seenChat[id] = d.c.t; if (!first || Date.now() - d.c.t < 8000) { var msg = softMsg(d.c.m); if (msg) { if (world) world.peerSay(id, msg); addChatLog(nm, msg); SFX.pop(); if (!MP.chatOpen) { MP.unread++; badge(); } } } }
     if (d.e && d.e.t && d.e.t !== MP.seenEmo[id]) { var f2 = !(id in MP.seenEmo); MP.seenEmo[id] = d.e.t; if (!f2 || Date.now() - d.e.t < 5000) { if (d.e.k === 'wave' && world) world.peerWave(id); if (d.e.to === me) { if (d.e.k === 'wave') toast('👋 ' + nm + ' 님이 손을 흔들어요'); if (d.e.k === 'heart') { toast('❤️ ' + nm + ' 님이 하트를 보냈어요'); if (world) world.hearts(); } } } }
+    if (id === MP.follow && d.g && d.g.t && d.g.t !== MP.seenG[id]) { var fg = !(id in MP.seenG); MP.seenG[id] = d.g.t; if (!fg || Date.now() - d.g.t < 6000) grpApply(d.g, nm); }
     MP.peers[id] = { n: nm, f: d.f };
   });
   MP.followers = Object.keys(map).filter(function (id) { return map[id].f && map[id].f === me; });
@@ -1126,6 +1128,18 @@ function renderGrp() {
   if (el._h !== h) { el._h = h; el.innerHTML = h; } el.hidden = false;
 }
 $('#grpCard').addEventListener('click', function (e) { if (e.target.closest('[data-g]')) { MP.follow = ''; mpSend(true); renderGrp(); toast('같이 다니기를 멈췄어요'); } });
+function grpShare(k, zone, spot) { if (!MP.on || !window.GQNet || !MP.followers.length) return; GQNet.update({ g: { t: Date.now(), k: k, z: zone, s: spot } }); }
+function grpApply(g, who) { // 앞장선 친구와 같이 체험: 시작하면 같이 시작, 한 일은 나도 한 것으로
+  var z = ZMAP[g.z]; if (!z) return; var st = state.zones[g.z];
+  if (g.k === 'start') { if (st.cleared) { toast('🚂 ' + who + ' 님이 「' + z.mission.title + '」 체험을 다시 해요'); return; } if (state.activeMission !== g.z) { state.activeMission = g.z; save(); if (world) world.missionOn(g.z); updateHUD(); } toast('🚂 ' + who + ' 님과 「' + z.mission.title + '」 체험을 같이 시작해요!', 3200); grpShare('start', g.z, ''); return; }
+  if (g.k === 'spot') {
+    var d = z.mission.spots.find(function (s) { return s.id === g.s; }); if (!d || st.spots[g.s]) return;
+    if (state.activeMission !== g.z && !st.cleared) { state.activeMission = g.z; save(); if (world) world.missionOn(g.z); }
+    if (z.template === 'ride' && world) { if (g.s === z.mission.spots[0].id) world.bike(true); if (g.s === z.mission.spots[z.mission.spots.length - 1].id) world.bike(false); }
+    if (z.template === 'sort' && carrying === g.s) { carrying = null; if (world) world.carry(null); }
+    completeSpot(g.z, g.s); toast('🚂 ' + who + ' 님과 같이 「' + (d.act ? d.act.replace(/^\S+\s/, '') : d.label) + '」 했어요!', 2600);
+  }
+}
 function mpFollowTick() { if (!MP.follow || !world || !modal.hidden) return; var p = world.peerPos(MP.follow); if (!p) return; var me = world.pos(), d = Math.hypot(p.x - me.x, p.z - me.z); if (d > 2.3 && world.idleFor() > 1.2) world.walkToPos(p, 1.7); }
 function openPeer(id) {
   var p = MP.peers[id]; if (!p) return; var el = $('#peerCard'), fol = MP.follow === id;

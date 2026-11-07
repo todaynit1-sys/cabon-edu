@@ -17,7 +17,7 @@ function emitPeers() { if (S.o && S.o.onPeers) S.o.onPeers(S.peers); }
 function clean(p) { // 받은 상태는 모양만 확인 (내용은 화면에서 한 번 더 거름)
   if (!p || typeof p !== 'object') return null;
   var x = Number(p.x), z = Number(p.z); if (!isFinite(x) || !isFinite(z)) return null;
-  return { n: String(p.n || '친구').slice(0, 10), x: Math.max(-40, Math.min(40, x)), z: Math.max(-40, Math.min(40, z)), h: Number(p.h) || 0, l: p.l && typeof p.l === 'object' ? p.l : {}, c: p.c && typeof p.c === 'object' ? { t: Number(p.c.t) || 0, m: String(p.c.m || '').slice(0, 60) } : null, e: p.e && typeof p.e === 'object' ? { t: Number(p.e.t) || 0, k: String(p.e.k || '').slice(0, 8), to: String(p.e.to || '').slice(0, 24) } : null, f: typeof p.f === 'string' ? p.f.slice(0, 24) : '', r: !!p.r };
+  return { n: String(p.n || '친구').slice(0, 10), x: Math.max(-40, Math.min(40, x)), z: Math.max(-40, Math.min(40, z)), h: Number(p.h) || 0, l: p.l && typeof p.l === 'object' ? p.l : {}, c: p.c && typeof p.c === 'object' ? { t: Number(p.c.t) || 0, m: String(p.c.m || '').slice(0, 60) } : null, e: p.e && typeof p.e === 'object' ? { t: Number(p.e.t) || 0, k: String(p.e.k || '').slice(0, 8), to: String(p.e.to || '').slice(0, 24) } : null, f: typeof p.f === 'string' ? p.f.slice(0, 24) : '', r: !!p.r, g: p.g && typeof p.g === 'object' ? { t: Number(p.g.t) || 0, k: String(p.g.k || '').slice(0, 8), z: String(p.g.z || '').slice(0, 24), s: String(p.g.s || '').slice(0, 32) } : null };
 }
 
 /* ---------- claude.ai room ---------- */
@@ -82,7 +82,7 @@ function update(patch) {
   Object.assign(S.me, patch);
   if (S.mode === 'room' && S.room) { // room은 초당 횟수가 정해져 있어 위치는 0.2초에 한 번만
     var now = Date.now(); clearTimeout(roomPending);
-    if (now - lastRoomSend > 200 || patch.c || patch.e || 'f' in patch) { lastRoomSend = now; S.room.presence(patch).catch(function () {}); }
+    if (now - lastRoomSend > 200 || patch.c || patch.e || patch.g || 'f' in patch) { lastRoomSend = now; S.room.presence(patch).catch(function () {}); }
     else roomPending = setTimeout(function () { lastRoomSend = Date.now(); S.room.presence(S.me).catch(function () {}); }, 220);
   }
 }
