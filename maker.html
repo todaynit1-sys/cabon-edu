@@ -55,10 +55,14 @@
   </details>
   <div class="row actions">
     <button class="btn primary big" id="btnRun">✨ AI로 체험관 만들기</button>
-    <label class="btn ghost">🎞️ 기록 재생 (AI 없이 시연)<input type="file" id="inReplay" accept="application/json,.json" hidden></label>
-    <label class="btn ghost">📦 만든 팩 불러와 검토<input type="file" id="inPack" accept="application/json,.json" hidden></label>
-    <select id="selLocal" class="btn ghost"><option value="">이 기기에 저장된 팩…</option></select>
+    <select id="selLocal" class="btn ghost"><option value="">이 기기에 저장된 팩 다시 열기…</option></select>
   </div>
+  <details class="opts"><summary>고급: 만든 팩 파일 불러오기 · 생성 기록 재생</summary>
+    <div class="row wrap">
+      <label class="btn ghost">📦 만든 팩(JSON) 불러와 검토<input type="file" id="inPack" accept="application/json,.json" hidden></label>
+      <label class="btn ghost">🎞️ 생성 기록 재생 (AI 없이 같은 과정 다시 보기)<input type="file" id="inReplay" accept="application/json,.json" hidden></label>
+    </div>
+  </details>
 </section>
 
 <section class="card" id="s2" hidden>

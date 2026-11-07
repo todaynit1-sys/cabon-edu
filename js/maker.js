@@ -14,23 +14,24 @@ function setPath(o, p, v) { var ks = p.split('.'), last = ks.pop(), t = ks.reduc
 /* ---------------- AI 연결 ---------------- */
 function aiText() { var c = G.loadCfg(); if (!LLM.isReady(c)) return { cls: 'off', txt: '⚠️ AI 연결 안 됨 · 눌러서 설정' }; return { cls: 'on', txt: '✨ AI: ' + (c.model || c.provider) + (c.provider === 'webllm' ? ' (브라우저)' : '') }; }
 function updatePill() { var a = aiText(); $('#aiPill').textContent = a.txt; $('#aiPill').className = 'pill ' + a.cls; }
-function openAi() {
-  var c = G.loadCfg(), presets = LLM.PRESETS.filter(function (p) { return p.id !== 'artifact'; });
-  $('#mcard').innerHTML = '<h3>AI 모델 연결 <span class="badge">모델 비종속</span></h3><p class="fine">담당자가 쓰는 메이커에서만 AI를 씁니다. 아이용 체험관은 AI 없이 동작해요. API 키는 기본적으로 이 화면을 닫으면 지워집니다.</p>' +
+function openAi(thenRun) {
+  var c = G.loadCfg(), presets = LLM.PRESETS.filter(function (p) { return p.id !== 'artifact'; }), fresh = !c.baseUrl && !c.model;
+  $('#mcard').innerHTML = '<h3>AI 모델 연결 <span class="badge">모델 비종속</span></h3><p class="fine">담당자가 쓰는 메이커에서만 AI를 씁니다. 학생용 체험관은 AI 없이 동작해요.' + (fresh ? ' <b>AI 환경비서에 쓰는 Gemini 무료 키를 아래 "API 키"에 붙여 넣고 저장하면 끝이에요.</b>' : '') + '</p>' +
     '<label>빠른 설정<select id="aiPreset"><option value="">직접 입력</option>' + presets.map(function (p) { return '<option value="' + p.id + '">' + esc(p.label) + '</option>'; }).join('') + '</select></label><p class="fine" id="presetNote"></p>' +
     '<label>연결 방식<select id="aiProv">' + ['openai', 'anthropic', 'webllm'].map(function (p) { return '<option ' + (c.provider === p ? 'selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>' +
     '<label>주소 (Base URL)<input id="aiUrl" value="' + esc(c.baseUrl) + '" placeholder="http://localhost:11434/v1 또는 기관 게이트웨이 주소"></label>' +
     '<label>모델 이름<input id="aiModel" value="' + esc(c.model) + '" placeholder="예: gemma3:12b, gpt-4.1-mini, claude-sonnet-4-5"></label>' +
     '<label>API 키 (필요할 때만)<input id="aiKey" type="password" value="' + esc(c.apiKey || '') + '"></label>' +
-    '<label class="chk"><input type="checkbox" id="aiKeep" ' + (c.keepKey ? 'checked' : '') + '> 이 기기에 키 저장 (공용 PC에서는 끄세요)</label>' +
+    '<label class="chk"><input type="checkbox" id="aiKeep" ' + (c.keepKey || fresh ? 'checked' : '') + '> 이 기기에 키 저장 (다음에 다시 안 넣어도 돼요 · 공용 PC에서는 끄세요)</label>' +
     '<p class="fine">webllm(브라우저 안 무료 AI)은 키 없이 시연할 때만 권장해요. 작은 모델이라 생성 품질이 낮고 느립니다.</p>' +
     '<div class="row"><button class="btn ghost" id="aiTest">연결 테스트</button><button class="btn primary" id="aiSave">저장</button><button class="btn ghost" id="aiClose">닫기</button><span class="fine" id="aiOut"></span></div>';
   $('#modal').hidden = false;
   var form = function () { return Object.assign(G.loadCfg(), { provider: $('#aiProv').value, baseUrl: $('#aiUrl').value.trim(), model: $('#aiModel').value.trim(), apiKey: $('#aiKey').value.trim(), keepKey: $('#aiKeep').checked }); };
   $('#aiPreset').onchange = function () { var p = presets.find(function (x) { return x.id === this.value; }, this); if (p) { $('#aiProv').value = p.provider; $('#aiUrl').value = p.baseUrl; $('#aiModel').value = p.model; } $('#presetNote').textContent = p ? p.note : ''; };
   $('#aiTest').onclick = function () { var out = $('#aiOut'); out.textContent = '연결하는 중…'; var f = form(); if (f.provider === 'webllm') { out.textContent = '브라우저 AI는 저장 뒤 첫 생성 때 모델을 내려받아요 (약 1~3GB)'; return; } G.test(f).then(function (t) { out.textContent = '✅ 성공: ' + t; }, function (e) { out.textContent = '❌ 실패: ' + e.message; }); };
-  $('#aiSave').onclick = function () { G.saveCfg(form()); updatePill(); $('#modal').hidden = true; toast('AI 연결을 저장했어요'); };
+  $('#aiSave').onclick = function () { var f = form(); if (f.provider !== 'webllm' && !f.apiKey && /googleapis|openai\.com|anthropic/.test(f.baseUrl)) { $('#aiOut').textContent = 'API 키를 붙여 넣어 주세요'; $('#aiKey').focus(); return; } G.saveCfg(f); updatePill(); $('#modal').hidden = true; toast('AI 연결을 저장했어요'); if (thenRun && G.ready()) $('#btnRun').click(); };
   $('#aiClose').onclick = function () { $('#modal').hidden = true; };
+  if (fresh) { $('#aiPreset').value = 'gemini'; $('#aiPreset').onchange(); setTimeout(function () { $('#aiKey').focus(); }, 50); }
 }
 $('#aiPill').onclick = openAi;
 $('#modal').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
@@ -53,7 +54,7 @@ $('#btnRun').onclick = function () {
   var o = options();
   if (o.source.replace(/\s/g, '').length < 300) { toast('교육자료가 너무 짧아요 (300자 이상)'); return; }
   if (!o.title) { toast('체험관 이름을 적어 주세요'); return; }
-  if (!G.ready()) { openAi(); toast('먼저 AI 모델을 연결하세요'); return; }
+  if (!G.ready()) { openAi(true); toast('AI 키를 붙여 넣고 저장하면 바로 만들기 시작해요'); return; }
   startRun(function (prog) { return G.run(o, prog); }, '모델: ' + (G.loadCfg().model || G.loadCfg().provider));
 };
 $('#inReplay').onchange = function () {
