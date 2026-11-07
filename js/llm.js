@@ -1,17 +1,15 @@
-/*! 초록별 퀴즈 마을 — LLM 연결 계층 (모델 비종속)
- *  ※ AI 환경비서(2026 세션1 출품작)의 연결 계층을 그대로 가져와 이름만 바꿨습니다.
+/*! AI 체험관 메이커 — LLM 연결 계층 (모델 비종속 · 담당자용 메이커에서만 씀, 학생 체험관은 AI를 부르지 않음)
+ *  ※ AI 환경비서(2026 세션1 출품작)의 연결 계층을 그대로 가져왔습니다. 환경비서와 같은 키(예: Google Gemini 무료 키)를 그대로 쓸 수 있습니다.
  *
- * 앱은 이 파일의 GreenLLM.chat() 하나만 호출합니다.
- * 연결 방식을 바꿔도 앱 코드는 그대로이며, 대부분의 모델을 코드 수정 없이 바꿔 쓸 수 있습니다.
+ * 메이커는 이 파일의 GreenLLM.chat() 하나만 호출합니다.
+ * 연결 방식을 바꿔도 메이커 코드는 그대로이며, 대부분의 모델을 코드 수정 없이 바꿔 쓸 수 있습니다.
  *
- *   0) webllm  : ★ 기본값. 브라우저 안에서 도는 무료 AI (WebLLM · WebGPU)
- *                서버·API 키·비용이 없고, 아이가 쓴 글이 기기 밖으로 나가지 않습니다.
- *                처음 켤 때 한 번 모델(약 1~1.5GB)을 내려받아 브라우저에 저장하고, 다음부터는 저장본을 씁니다.
- *   1) openai  : OpenAI 호환 Chat Completions API (/v1/chat/completions)
- *                Ollama · vLLM · LM Studio · 행정안전부 AI 공통기반(OpenAI 호환 게이트웨이 가정) · OpenAI 등
+ *   1) openai  : ★ 기본. OpenAI 호환 Chat Completions API (/v1/chat/completions)
+ *                Google Gemini(OpenAI 호환 주소) · 행정안전부 AI 공통기반(OpenAI 호환 게이트웨이 가정) · 기관 vLLM · Ollama · LM Studio · OpenAI 등
  *   2) anthropic : Anthropic Messages API (Claude)
+ *   3) webllm  : 브라우저 안에서 도는 모델 (WebLLM · WebGPU). 담당자 PC에서 외부 전송 없이 쓸 수 있으나 느리고 많이 걸러짐
  *
- * ※ Google Gemini API는 약관상 18세 미만이 쓸 가능성이 높은 서비스에 쓸 수 없어 빠른 설정에서 뺐습니다.
+ * ※ 메이커를 쓰는 사람은 담당자(성인)이므로 Gemini API를 써도 됩니다. 학생 화면은 어떤 AI도 부르지 않습니다.
  * 새 연결 방식이 필요하면 ADAPTERS에 같은 모양의 객체를 하나 추가하면 됩니다.
  */
 (function () {
@@ -27,12 +25,14 @@ var WEB_MODELS = [
 
 /* 화면의 '빠른 설정' 목록. 값은 예시이며 설정 화면에서 자유롭게 고칠 수 있습니다. */
 var PRESETS = [
-  { id: 'browser',   label: '브라우저 안 무료 AI (설치·키·비용 없음)', provider: 'webllm', baseUrl: '', model: WEB_MODELS[0].id, needsKey: false,
-    note: '이 기기의 크롬·엣지 안에서 AI가 직접 돌아갑니다(WebGPU 필요). 아이가 쓴 글이 밖으로 나가지 않아요. 처음 한 번 모델을 내려받습니다.' },
-  { id: 'ollama',    label: 'Ollama (내 PC · 무료)',          provider: 'openai',    baseUrl: 'http://localhost:11434/v1', model: 'gemma3:12b',   needsKey: false,
-    note: 'PC에 Ollama를 설치하고 모델을 받아 두면 인터넷·API 키 없이 동작합니다. 예: gemma3:12b, exaone3.5:7.8b, gpt-oss:20b' },
+  { id: 'gemini',    label: 'Google Gemini (무료 키 · AI 환경비서와 같음 · 추천)', provider: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', needsKey: true,
+    note: 'AI 환경비서에서 쓰는 Gemini API 키를 그대로 붙여 넣으면 됩니다(aistudio.google.com에서 무료 발급). 키는 이 브라우저에만 두고 저장소·파일에는 넣지 않아요.' },
   { id: 'gov',       label: '공통기반 · 기관 서버 (OpenAI 호환)', provider: 'openai',    baseUrl: '',                           model: '',             needsKey: true,
     note: '행정안전부 AI 공통기반 또는 기관 내부 vLLM 서버처럼 OpenAI 호환 주소를 제공하는 경우입니다. 주소·모델명·키를 기관 안내에 맞게 입력하세요.' },
+  { id: 'browser',   label: '브라우저 안 AI (키 없음 · 느림)',   provider: 'webllm', baseUrl: '', model: WEB_MODELS[0].id, needsKey: false,
+    note: '담당자 PC의 크롬·엣지 안에서 AI가 직접 돌아갑니다(WebGPU 필요). 처음 한 번 모델을 내려받으며, 작은 모델이라 느리고 많이 걸러집니다.' },
+  { id: 'ollama',    label: 'Ollama (내 PC · 무료)',          provider: 'openai',    baseUrl: 'http://localhost:11434/v1', model: 'gemma3:12b',   needsKey: false,
+    note: 'PC에 Ollama를 설치하고 모델을 받아 두면 인터넷·API 키 없이 동작합니다. 예: gemma3:12b, exaone3.5:7.8b, gpt-oss:20b' },
   { id: 'lmstudio',  label: 'LM Studio (내 PC)',              provider: 'openai',    baseUrl: 'http://localhost:1234/v1',  model: '',             needsKey: false,
     note: 'LM Studio의 Local Server를 켠 뒤 불러온 모델 이름을 입력하세요.' },
   { id: 'openai',    label: 'OpenAI',                         provider: 'openai',    baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1-mini', needsKey: true, note: '' },

@@ -96,13 +96,13 @@
 
 | 연결 방식 | 내용 |
 |---|---|
-| openai (OpenAI 호환) | 행정안전부 AI 공통기반(OpenAI 호환 게이트웨이) · 기관 vLLM · Ollama · LM Studio · OpenAI 등. JSON 스키마 강제 |
+| openai (OpenAI 호환) | **Google Gemini(무료 키 · AI 환경비서와 같은 키)** · 행정안전부 AI 공통기반(OpenAI 호환 게이트웨이) · 기관 vLLM · Ollama · LM Studio · OpenAI 등. JSON 스키마 강제 |
 | anthropic | Claude |
 | webllm | 브라우저 안 모델(WebGPU · Gemma 4 E2B 등). 담당자 PC에서 외부 전송 없이 생성할 수 있으나 느리고 많이 걸러짐 |
 | claude-artifact | claude.ai에 게시한 시연 페이지 안에서만 |
 
 - API 키는 브라우저 메모리에만 두며("이 기기에 기억"을 켠 경우에만 저장) **저장소·설정 파일에는 넣지 않습니다.**
-- Google Gemini API는 약관상 18세 미만이 쓸 가능성이 높은 서비스에 쓸 수 없어 목록에서 뺐습니다.
+- 메이커를 쓰는 사람은 담당자(성인)이므로 Gemini API를 써도 됩니다. 학생 체험관은 어떤 AI도 부르지 않으므로 약관 문제가 없습니다.
 - 같은 자료를 두 모델로 생성해 **걸러진 비율**을 비교할 수 있습니다(기록 저장 → 걸러진 항목 탭).
 
 ## 4. 팩 형식 (JSON v1) — 체험관 하나 = 파일 하나
