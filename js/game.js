@@ -169,7 +169,7 @@ function impactHTML() {
   var zoneYear = function (z) { return cs.list.filter(function (x) { return x.z === z; }).reduce(function (s, x) { return s + x.s.co2.kg * x.s.co2.times; }, 0); };
   return '<div class="impact"><b>📊 네 체험이 만든 변화</b><div class="impact-nums"><span>✅ 실천 <b>' + n + '</b>개</span>' + (cs.year > 0 ? '<span>🧮 줄인 탄소 1년 <b>' + fmtKg(cs.year) + '</b></span><span>🌲 소나무 <b>' + treesOf(cs.year) + '</b>그루 몫</span>' : '') + '<span>🌡️ ' + esc(P.hub.meter) + ' 100% → <b>' + heat + '%</b></span></div><ul>' +
     ZONES.filter(function (z) { return missionDoneCount(z.id) > 0; }).map(function (z) { var M = z.mission, zy = zoneYear(z); return '<li style="--zc:' + z.color + '"><span>' + M.icon + '</span><div><b>' + esc(M.title) + ' ' + missionDoneCount(z.id) + '/' + missionTotal(z.id) + (zy > 0 ? ' · 1년 −' + fmtKg(zy) : '') + '</b>' + chainHTML(M.chain) + '</div></li>'; }).join('') + '</ul>' +
-    (cs.year > 0 ? '<details class="evsmall"><summary>🧮 탄소 계산 근거 보기</summary><ul>' + cs.list.filter(function (x) { return x.s.co2.kg > 0; }).map(function (x) { return '<li><b>' + esc(x.s.label) + '</b> ' + fmtKg(x.s.co2.kg) + ' × ' + x.s.co2.times + '번 = ' + fmtKg(x.s.co2.kg * x.s.co2.times) + ' · ' + esc(x.s.co2.basis) + '</li>'; }).join('') + '</ul></details>' : '') + '</div>';
+    (cs.year > 0 ? '<details class="evsmall"><summary>🧮 탄소 계산 근거 보기</summary><ul>' + cs.list.filter(function (x) { return x.s.co2.kg > 0; }).map(function (x) { return '<li><b>' + esc(x.s.label) + '</b> ' + fmtKg(x.s.co2.kg) + ' × ' + x.s.co2.times + '번 = ' + fmtKg(x.s.co2.kg * x.s.co2.times) + ' · ' + esc(x.s.co2.basis) + '</li>'; }).join('') + '</ul></details>' : '') + '<button class="ghost card-btn" data-act="card">🏅 내 실천 인증 카드 만들기</button></div>';
 }
 var QUEST = null;
 function computeQuest() {
@@ -513,7 +513,14 @@ function calcItems(ans) {
     return { q: q, opt: o, kg: r2(kg), save: r2(Math.max(0, kg - bk)), days: q.days || 365 };
   });
 }
-function openCalc() {
+function openCalcChoice() {
+  openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">🧮</span><div><b>내 탄소 재기</b><small>오늘 내가 내보낸 탄소를 재고, 줄이는 방법을 찾아요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<div class="lab"><button class="pick-big lab-calc" data-act="diary"><span>🗣️</span><b>오늘 하루를 말로 (AI)</b><small>"엄마 차로 5km, 에어컨 22도 3시간"처럼 쓰면 AI가 행동을 찾아 계산해요</small></button>' +
+    '<button class="pick-big lab-learn" data-act="buttons"><span>👆</span><b>버튼으로 골라 재기</b><small>등교·에어컨·플러그·불 다섯 가지를 골라요</small></button></div>', { cls: 'menu' });
+  mcard.onclick = function (e) { var a = e.target.closest('[data-act]'); if (!a) return; SFX.click(); if (a.dataset.act === 'close') closeModal(); if (a.dataset.act === 'diary') openDiary(); if (a.dataset.act === 'buttons') openCalc(true); };
+}
+function openCalc(direct) {
+  if (!direct && window.GQAI && GQAI.ready()) { openCalcChoice(); return; }
   var C = P.calc; if (!C) return; var ans = {}, i = 0, qs = C.questions;
   function needKm() { var g = qs.find(function (q) { return q.id === 'go'; }); return !g || ans.go == null || g.options[ans.go].perKm; }
   function steps() { return qs.filter(function (q) { return !q.km || needKm(); }); }
@@ -543,7 +550,7 @@ function openCalc() {
       (chg.length ? '<div class="calc-chg"><b>🌱 이렇게 바꾸면</b>' + chg.map(function (x, k) { return '<label class="chg"><input type="radio" name="pledge" value="' + k + '"' + (k === 0 ? ' checked' : '') + '><span><b>' + esc(x.q.best) + '</b><small>1년 −' + x.year + 'kg · 소나무 ' + x.trees + '그루 몫</small></span></label>'; }).join('') + '</div>' : '') +
       '<div class="coach"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p id="coachText">' + esc(aiOn ? 'AI 탄소 코치가 네 결과를 보고 있어…' : fallback) + '</p><small class="aimark" id="coachNote">' + (aiOn ? '✨ AI 탄소 코치' : '📗 기본 코칭') + '</small></div></div>' +
       '<details class="evsmall"><summary>📄 계산 근거 보기</summary><p>' + esc(C.note) + '</p><ul>' + evs.map(function (id) { return '<li><b>' + esc(CARD[id].title) + '</b> ' + esc(CARD[id].text) + '</li>'; }).join('') + '</ul></details>' +
-      '<div class="btns">' + (chg.length ? '<button class="primary big" data-act="pledge" data-autofocus>이 실천 약속하기 🌱</button>' : '') + '<button class="ghost" data-act="again">다시 재기</button><button class="ghost" data-act="close">닫기</button></div>', { cls: 'calc' });
+      '<div class="btns">' + (chg.length ? '<button class="primary big" data-act="pledge" data-autofocus>이 실천 약속하기 🌱</button>' : '') + '<button class="ghost" data-act="card">🏅 인증 카드</button><button class="ghost" data-act="again">다시 재기</button><button class="ghost" data-act="close">닫기</button></div>', { cls: 'calc' });
     SFX.fanfare(); if (world) world.cheer();
     if (aiOn) {
       var shown = '하루 ' + day.toFixed(2) + 'kg, 1년 ' + year + 'kg, 소나무 ' + trees + '그루 ' + items.map(function (x) { return x.kg.toFixed(2); }).join(' ') + ' ' + chg.map(function (x) { return x.year + 'kg ' + x.trees + '그루'; }).join(' ');
@@ -558,11 +565,184 @@ function openCalc() {
     } else TTS.speak(fallback, 'bear');
     mcard.onclick = function (e) {
       var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
-      if (act === 'close') closeModal(); if (act === 'again') { ans = {}; i = 0; ask(); }
+      if (act === 'close') closeModal(); if (act === 'card') openCard(); if (act === 'again') { ans = {}; i = 0; ask(); }
       if (act === 'pledge') { var r = mcard.querySelector('input[name="pledge"]:checked'), x = chg[r ? +r.value : 0]; state.homework = { text: x.q.best + ' (1년 −' + x.year + 'kg)', why: x.q.bestWhy, ev: x.q.ev, date: today(), done: false }; save(); SFX.fanfare(); confetti(30); toast('🌱 약속했어요! 다음에 오면 "해 봤어?" 하고 물어볼게요', 3600); closeModal(); }
     };
   }
   ask();
+}
+
+/* ------------------------------------------------------------
+   🗣️ AI 하루 탄소 일기 — AI는 문장에서 행동만 뽑고(근거 문구 대조), 숫자는 계수로 계산
+   ------------------------------------------------------------ */
+var KWH = 0.4781;
+var DIARY = {
+  car_km: { name: '승용차 이동', unit: 'km', f: 0.21, max: 300, ev: 'T9', how: '승용차 0.21kg/km' },
+  bus_km: { name: '버스·지하철', unit: 'km', f: 0.05, max: 300, ev: 'T11', how: '대중교통 0.05kg/km(대략)' },
+  walk_km: { name: '걷기·자전거', unit: 'km', f: 0, max: 60, ev: 'T2', good: true, how: '배출 0 · 자동차 대신이면 0.21kg/km 절약' },
+  ac_hours: { name: '에어컨', unit: '시간', ac: true, max: 24, ev: 'H13', how: '1시간 약 1kWh(26℃ 기준, 1℃ 낮출 때 +7%) × 0.4781' },
+  fan_hours: { name: '선풍기', unit: '시간', f: 0.05 * KWH, max: 24, ev: 'H3', how: '1시간 0.05kWh × 0.4781' },
+  device_hours: { name: 'TV·게임·컴퓨터', unit: '시간', f: 0.1 * KWH, max: 20, ev: 'H1', how: '1시간 약 0.1kWh × 0.4781(대략)' },
+  light_hours: { name: '빈 방 불 켜 둠', unit: '시간', f: 0.04 * KWH, max: 24, ev: 'H5', how: '형광등 40W 1시간 0.04kWh × 0.4781' },
+  plug_left: { name: '안 쓰는 플러그 꽂아 둠', unit: '일', f: 0.6 * KWH, max: 1, ev: 'H14', how: '집 대기전력 하루 0.6kWh × 0.4781' },
+  food_waste_g: { name: '남긴 음식', unit: 'g', f: 0.00165, max: 3000, ev: 'R7', how: '음식물 쓰레기 1.65kg/kg(환경부 LCA)' },
+  cup: { name: '일회용 컵·페트병', unit: '개', f: 0.086, max: 30, ev: 'R5', how: '일회용품 0.086kg/개' },
+  paper: { name: '종이 사용', unit: '장', f: 0.00525, max: 1000, ev: 'F5', how: '종이 0.00525kg/장' },
+  recycle_kg: { name: '분리배출', unit: 'kg', f: -1.5, max: 30, ev: 'R1', good: true, how: '고품질 분리배출 1.5kg/kg 절감' },
+  tumbler: { name: '텀블러·장바구니 사용', unit: '번', f: -0.086, max: 30, ev: 'R5', good: true, how: '일회용품 1개 0.086kg 절감' }
+};
+function acKwh(temp) { var t = +temp || 24; return Math.max(0.6, Math.min(1.8, 1 + 0.07 * (26 - t))); }
+function diaryKg(it) { var d = DIARY[it.type]; if (d.ac) return it.amount * acKwh(it.temp) * KWH; return it.amount * d.f; }
+function diaryAlt(it) { // 바꾸면 줄어드는 양 (하루)
+  var a = it.amount, kg = diaryKg(it);
+  switch (it.type) {
+    case 'car_km': return a <= 3 ? { text: '가까운 길(' + a + 'km)은 걷거나 자전거로', save: kg, ev: 'T2' } : { text: '승용차 대신 버스·지하철(' + a + 'km)', save: a * (0.21 - 0.05), ev: 'T3' };
+    case 'bus_km': return a <= 2 ? { text: '가까운 길(' + a + 'km)은 걷기', save: kg, ev: 'T2' } : null;
+    case 'ac_hours': return (+it.temp || 24) < 26 ? { text: '에어컨을 26℃로(' + a + '시간)', save: kg - a * acKwh(26) * KWH, ev: 'H10' } : (a > 2 ? { text: '에어컨 1시간 덜 켜기', save: acKwh(it.temp) * KWH, ev: 'H3' } : null);
+    case 'device_hours': return a >= 1 ? { text: 'TV·게임 1시간 줄이기', save: 0.1 * KWH, ev: 'H1' } : null;
+    case 'light_hours': return { text: '나올 때 불 끄기', save: kg, ev: 'H5' };
+    case 'plug_left': return { text: '안 쓰는 플러그 뽑기', save: kg, ev: 'H11' };
+    case 'food_waste_g': return { text: '먹을 만큼만 담고 남기지 않기', save: kg, ev: 'R7' };
+    case 'cup': return { text: '일회용 컵 대신 텀블러(' + a + '개)', save: kg, ev: 'R5' };
+    case 'paper': return a >= 4 ? { text: '종이 양면 쓰기', save: kg / 2, ev: 'F5' } : null;
+  }
+  return null;
+}
+function normTxt(s) { return String(s || '').replace(/\s+/g, '').replace(/[.,!?~·"'“”‘’]/g, ''); }
+function openDiary() {
+  var ex = ['아침에 엄마 차 타고 학교 갔어. 5km쯤 돼. 점심은 조금 남겼고, 집에 와서 에어컨 22도로 3시간 켰어.', '버스로 4km 통학했고 편의점에서 페트병 음료 2개 샀어. 저녁엔 게임 2시간 하고 방 불 켜 놓고 나왔어.', '오늘은 자전거로 2km 학교 가고 급식 다 먹었어. 텀블러 들고 다녔고 우유팩 분리배출했어.'];
+  openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">🗣️</span><div><b>AI 하루 탄소 일기</b><small>오늘 한 일을 말하듯 쓰면 AI가 행동을 찾고, 탄소는 공식 계수로 계산해요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<label class="lbl">오늘 하루를 적어 봐요 (이름·학교·주소는 쓰지 않기)<textarea id="diaryIn" maxlength="300" rows="4" placeholder="예: 엄마 차로 5km 등교, 점심 조금 남김, 에어컨 22도로 3시간"></textarea></label>' +
+    '<div class="chips">' + ex.map(function (t, i) { return '<button class="chip" data-ex="' + i + '">예시 ' + (i + 1) + '</button>'; }).join('') + '</div>' +
+    '<p class="fine" id="diaryMsg">🔒 쓴 글은 저장하지 않아요. 개인정보는 AI로 보내기 전에 ○○로 가려요.</p>' +
+    '<div class="btns"><button class="primary big" data-act="run" data-autofocus>✨ AI로 계산하기</button><button class="ghost" data-act="buttons">👆 버튼으로 재기</button></div>', { cls: 'calc' });
+  setTimeout(function () { var t = $('#diaryIn'); if (t && !('ontouchstart' in window)) t.focus(); }, 60);
+  mcard.onclick = function (e) {
+    var x = e.target.closest('[data-ex]'); if (x) { $('#diaryIn').value = ex[+x.dataset.ex]; return; }
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'close') closeModal();
+    if (a.dataset.act === 'buttons') openCalc(true);
+    if (a.dataset.act === 'run') runDiary();
+  };
+}
+function runDiary() {
+  var raw = ($('#diaryIn').value || '').trim(); if (raw.length < 6) { $('#diaryMsg').textContent = '조금만 더 자세히 적어 줄래요? (예: 무엇을 타고, 몇 km, 에어컨 몇 도)'; return; }
+  var m = window.GQSafety.maskPII(raw), c = window.GQSafety.checkInput(m.text);
+  if (!c.ok) { $('#diaryMsg').textContent = c.reply; return; }
+  var text = m.text, L = lvInfo();
+  $('#diaryMsg').textContent = (m.found.length ? '🔒 ' + m.found.join('·') + '을(를) ○○로 가렸어요 · ' : '') + '✨ AI가 네 하루를 읽고 있어요…';
+  mcard.querySelector('[data-act="run"]').disabled = true;
+  var types = Object.keys(DIARY).map(function (k) { return '- ' + k + ': ' + DIARY[k].name + ' (단위 ' + DIARY[k].unit + ')'; }).join('\n');
+  GQAI.chat([{ role: 'system', content: '너는 학생의 하루 글에서 탄소와 관련된 행동만 찾아 표로 바꾸는 도우미야. 계산은 하지 마.\n찾을 수 있는 type 목록:\n' + types + '\n규칙:\n- 글에 실제로 나온 행동만. 없는 행동을 지어내지 마.\n- amount는 숫자. 글에 숫자가 없으면 상식적으로 짐작하고 assumed를 true로(거리 모르면 3, 음식 "조금" 100g·"많이" 300g·"다 먹음"은 넣지 않음, 플러그는 1).\n- ac_hours는 temp(설정 온도 ℃)도 넣어. 모르면 24, assumed true.\n- quote에는 그 행동이 나온 글의 구절을 글자 그대로 옮겨(5~25자).\n- 목록에 없는 행동은 unclear에 짧게.\nJSON 객체 하나만 출력: {"items":[{"type":"car_km","amount":5,"quote":"엄마 차 타고","assumed":false}],"unclear":["..."]}' },
+    { role: 'user', content: text }], { maxTokens: 500, temperature: 0 })
+    .then(function (t) {
+      var o = null; try { var s = t.indexOf('{'), en = t.lastIndexOf('}'); o = JSON.parse(t.slice(s, en + 1)); } catch (er) {}
+      if (!o || !Array.isArray(o.items)) throw new Error('읽지 못함');
+      var ok = [], dropped = [], src = normTxt(text);
+      o.items.forEach(function (it) {
+        var d = DIARY[it && it.type]; var amt = +it.amount, q = String(it.quote || '').trim();
+        if (!d) { dropped.push((q || it.type) + ' — 계산할 수 없는 항목'); return; }
+        if (!(amt > 0) || amt > d.max) { dropped.push(d.name + ' — 양이 이상해요(' + it.amount + ')'); return; }
+        if (!q || src.indexOf(normTxt(q)) < 0) { dropped.push(d.name + ' — 글에서 근거 구절을 찾지 못함(지어냈을 수 있어 뺐어요)'); return; }
+        var row = { type: it.type, amount: amt, quote: q, assumed: !!it.assumed }; if (d.ac) row.temp = Math.max(16, Math.min(30, +it.temp || 24));
+        ok.push(row);
+      });
+      showDiary(text, ok, dropped, (o.unclear || []).slice(0, 4));
+    }).catch(function () { var b = mcard.querySelector('[data-act="run"]'); if (b) b.disabled = false; $('#diaryMsg').textContent = 'AI가 지금 대답하지 못했어요. 잠시 뒤 다시 하거나 "버튼으로 재기"를 써 주세요.'; });
+}
+function showDiary(text, rows, dropped, unclear) {
+  var tree = (P.calc && P.calc.factors && P.calc.factors.tree) || 6.6;
+  rows.forEach(function (r) { r.kg = diaryKg(r); r.alt = DIARY[r.type].good ? null : diaryAlt(r); if (r.type === 'walk_km') r.avoid = r.amount * 0.21; });
+  var emit = rows.filter(function (r) { return r.kg > 0; }).reduce(function (s, r) { return s + r.kg; }, 0), good = rows.reduce(function (s, r) { return s + (r.kg < 0 ? -r.kg : 0) + (r.avoid || 0); }, 0);
+  var chg = rows.filter(function (r) { return r.alt && r.alt.save > 0.005; }).map(function (r) { return Object.assign({ row: r }, r.alt); }).sort(function (a, b) { return b.save - a.save; }).slice(0, 3);
+  var year = Math.round(emit * 365);
+  state.diary = { kg: r2(emit), good: r2(good), date: today() }; save();
+  var line = function (r) { var d = DIARY[r.type]; return '<tr><td>“' + esc(r.quote) + '”' + (r.assumed ? ' <em class="assume">짐작</em>' : '') + '</td><td>' + esc(d.name) + ' ' + r.amount + d.unit + (d.ac ? ' · ' + r.temp + '℃' : '') + '</td><td class="num ' + (r.kg < 0 || r.avoid ? 'good' : '') + '">' + (r.kg < 0 ? '−' + fmtKg(-r.kg) : r.avoid ? '0 (자동차 대신 −' + fmtKg(r.avoid) + ')' : fmtKg(r.kg)) + '</td></tr>'; };
+  var fallback = chg.length ? '오늘 가장 크게 줄일 수 있는 건 "' + chg[0].text + '"이야. 이것만 바꿔도 하루 ' + fmtKg(chg[0].save) + ' 줄어. 내일 하나만 해 볼래?' : (rows.length ? '오늘은 탄소를 아끼는 하루였네! 이 습관을 계속 이어 가자.' : '글에서 탄소와 관련된 행동을 찾지 못했어. 무엇을 타고 다녔는지, 에어컨·음식은 어땠는지 적어 줄래?');
+  var aiOn = window.GQAI && GQAI.ready();
+  openModal('<div class="who" style="--zc:#7fcd6b"><span class="ava">🗣️</span><div><b>AI 하루 탄소 일기 결과</b><small>AI는 행동만 찾고, 탄소는 공식 계수로 계산했어요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+    '<div class="calc-total"><div><small>오늘 내보낸 탄소</small><b>' + fmtKg(emit).replace(/(kg|g)$/, '<i>$1</i>') + '</b></div><div><small>오늘 아낀 탄소</small><b>' + fmtKg(good).replace(/(kg|g)$/, '<i>$1</i>') + '</b></div><div><small>이런 날이 1년이면</small><b>' + year + '<i>kg</i></b></div></div>' +
+    (rows.length ? '<div class="tbl-wrap"><table class="diary"><thead><tr><th>내가 쓴 말</th><th>AI가 찾은 행동</th><th>탄소</th></tr></thead><tbody>' + rows.map(line).join('') + '</tbody></table></div>' : '') +
+    (dropped.length || unclear.length ? '<details class="evsmall"><summary>🔍 검증에서 뺀 것 ' + (dropped.length + unclear.length) + '개</summary><ul>' + dropped.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + unclear.map(function (u) { return '<li>' + esc(String(u)) + ' — 계산 목록에 없는 행동</li>'; }).join('') + '</ul></details>' : '') +
+    (chg.length ? '<div class="calc-chg"><b>🌱 내일 이렇게 바꾸면</b>' + chg.map(function (x, k) { var y = Math.round(x.save * 365); return '<label class="chg"><input type="radio" name="pledge" value="' + k + '"' + (k === 0 ? ' checked' : '') + '><span><b>' + esc(x.text) + '</b><small>하루 −' + fmtKg(x.save) + ' · 1년이면 −' + y + 'kg (소나무 ' + treesOf(y) + '그루 몫)</small></span></label>'; }).join('') + '</div>' : '') +
+    '<div class="coach"><span class="ava">' + AE[P.mascot.animal] + '</span><div><p id="coachText">' + esc(aiOn && rows.length ? 'AI 탄소 코치가 네 하루를 보고 있어…' : fallback) + '</p><small class="aimark" id="coachNote">' + (aiOn && rows.length ? '✨ AI 탄소 코치' : '📗 기본 코칭') + '</small></div></div>' +
+    '<details class="evsmall"><summary>📄 계산 방법 보기</summary><ul>' + rows.map(function (r) { var d = DIARY[r.type]; return '<li><b>' + esc(d.name) + '</b> ' + esc(d.how) + '</li>'; }).join('') + '<li>소나무 1그루는 1년에 약 ' + tree + 'kg을 흡수해요(산림청).</li></ul></details>' +
+    '<div class="btns">' + (chg.length ? '<button class="primary big" data-act="pledge" data-autofocus>이 실천 약속하기 🌱</button>' : '') + '<button class="ghost" data-act="card">🏅 인증 카드</button><button class="ghost" data-act="again">다시 쓰기</button></div>', { cls: 'calc' });
+  SFX.fanfare(); if (world) world.cheer();
+  if (aiOn && rows.length) {
+    var shown = fmtKg(emit) + ' ' + fmtKg(good) + ' ' + year + 'kg ' + rows.map(function (r) { return r.amount + ' ' + fmtKg(Math.abs(r.kg)) + (r.temp ? ' ' + r.temp : '') + (r.avoid ? ' ' + fmtKg(r.avoid) : ''); }).join(' ') + ' ' + chg.map(function (x) { var y = Math.round(x.save * 365); return fmtKg(x.save) + ' ' + y + 'kg ' + treesOf(y); }).join(' ') + ' 26 7';
+    var L = lvInfo();
+    GQAI.chat([{ role: 'system', content: '너는 탄소중립 체험실의 AI 탄소 코치 "' + P.mascot.name + '"야. 대상: ' + L.label + ' (' + L.desc + ')\n학생의 하루를 계산한 결과를 보고 3문장으로 코칭해. ① 오늘 잘한 점 하나 ② 내일 가장 효과 큰 바꾸기와 이유 ③ 줄어드는 양(아래 숫자 그대로). 아래에 없는 숫자는 쓰지 마. 다정한 반말, 겁주는 말·이모지 금지.' },
+      { role: 'user', content: '[하루 계산]\n' + rows.map(function (r) { var d = DIARY[r.type]; return '- ' + d.name + ' ' + r.amount + d.unit + (r.temp ? ' ' + r.temp + '℃' : '') + ': ' + (r.kg < 0 ? '절약 ' + fmtKg(-r.kg) : r.avoid ? '배출 0, 자동차 대신 절약 ' + fmtKg(r.avoid) : '배출 ' + fmtKg(r.kg)); }).join('\n') + '\n[합계] 내보낸 탄소 ' + fmtKg(emit) + ', 아낀 탄소 ' + fmtKg(good) + ', 1년이면 ' + year + 'kg\n[바꾸면]\n' + (chg.length ? chg.map(function (x) { var y = Math.round(x.save * 365); return '- ' + x.text + ': 하루 ' + fmtKg(x.save) + ', 1년 ' + y + 'kg'; }).join('\n') : '- 없음') }], { maxTokens: 360 })
+      .then(function (t) { var el = $('#coachText'), nt = $('#coachNote'); if (!el) return; var v = GQAI.verify(t, { maxLen: 320, numbers: shown }); if (v.ok) { el.textContent = v.text; nt.textContent = '✨ AI 탄소 코치 · 숫자는 계산 결과와 대조해 확인했어요'; TTS.speak(v.text, 'bear'); } else { el.textContent = fallback; nt.textContent = '📗 기본 코칭 (AI 답이 검증에서 걸러짐: ' + v.why + ')'; } },
+        function () { var el = $('#coachText'); if (el) { el.textContent = fallback; $('#coachNote').textContent = '📗 기본 코칭'; } });
+  } else TTS.speak(fallback, 'bear');
+  mcard.onclick = function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
+    if (act === 'close') closeModal(); if (act === 'again') openDiary(); if (act === 'card') openCard();
+    if (act === 'pledge') { var r = mcard.querySelector('input[name="pledge"]:checked'), x = chg[r ? +r.value : 0]; state.homework = { text: x.text + ' (하루 −' + fmtKg(x.save) + ')', why: '내 하루 탄소 일기에서 가장 효과가 큰 실천이에요.', ev: x.ev, date: today(), done: false }; save(); SFX.fanfare(); confetti(30); toast('🌱 약속했어요! 다음에 오면 "해 봤어?" 하고 물어볼게요', 3600); closeModal(); }
+  };
+}
+
+/* ------------------------------------------------------------
+   🏅 내 실천 인증 카드 — 캐릭터 · 줄인 탄소 · 소나무 · QR (이 기기에서 그려 저장)
+   ------------------------------------------------------------ */
+function appLink() { return window.GQ_APP_URL ? String(window.GQ_APP_URL).replace(/index\.html$/, '') : (location.origin && location.origin !== 'null' ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://cabon-edu.vercel.app/'); }
+function cardTitle(y) { return y >= 300 ? '지구 지킴 히어로' : y >= 150 ? '탄소 다이어트 고수' : y >= 50 ? '초록 실천가' : y > 0 ? '새싹 실천가' : '탄소중립 탐험가'; }
+function drawCard(nick) {
+  return new Promise(function (resolve) {
+    var W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H; var g = cv.getContext('2d');
+    var cs = co2Sum(), yr = cs.year, tr = treesOf(yr), G = GRADES[state.grade], title = cardTitle(yr);
+    var bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#dff3ff'); bg.addColorStop(0.55, '#f3fbe9'); bg.addColorStop(1, '#cfeec0'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,255,255,.85)'; roundRect(g, 60, 60, W - 120, H - 120, 48); g.fill();
+    g.fillStyle = '#2f86c4'; g.font = '700 40px Jua, "Malgun Gothic", sans-serif'; g.textAlign = 'center'; g.fillText('✨ AI 탄소중립 체험실', W / 2, 140);
+    g.fillStyle = '#5d7480'; g.font = '30px "Malgun Gothic", sans-serif'; g.fillText(P.title + ' · 실천 인증 카드', W / 2, 190);
+    var img = new Image(); img.onload = function () {
+      g.drawImage(img, W / 2 - 170, 220, 340, 400);
+      g.fillStyle = '#e0a21c'; roundRect(g, W / 2 - 230, 640, 460, 70, 35); g.fill();
+      g.fillStyle = '#fff'; g.font = '700 40px Jua, "Malgun Gothic", sans-serif'; g.fillText('🏅 ' + title, W / 2, 690);
+      g.fillStyle = '#24414a'; g.font = '700 44px "Malgun Gothic", sans-serif'; g.fillText((nick || '탄소중립 탐험대원') + ' · ' + G.label, W / 2, 780);
+      g.fillStyle = '#5d7480'; g.font = '32px "Malgun Gothic", sans-serif'; g.fillText('체험으로 줄인 탄소 (1년 동안 이어 가면)', W / 2, 850);
+      g.fillStyle = '#2f7d5b'; g.font = '700 120px Jua, "Malgun Gothic", sans-serif'; g.fillText(Math.round(yr) + 'kg', W / 2, 970);
+      g.fillStyle = '#24414a'; g.font = '36px "Malgun Gothic", sans-serif'; g.fillText('🌲 소나무 ' + tr + '그루가 1년 동안 빨아들이는 양', W / 2, 1030);
+      var extra = []; if (state.diary) extra.push('🗣️ 하루 탄소 일기 ' + fmtKg(state.diary.kg)); if (state.homework) extra.push('🌱 약속: ' + state.homework.text.replace(/\s*\(.*\)$/, '')); extra.push('✅ 실천 ' + spotsDone() + '개 · ⭐ ' + totalStars());
+      g.font = '30px "Malgun Gothic", sans-serif'; g.fillStyle = '#5d7480'; g.textAlign = 'left'; extra.slice(0, 3).forEach(function (t, i) { g.fillText(t.length > 24 ? t.slice(0, 24) + '…' : t, 120, 1115 + i * 46); });
+      var d = new Date(); g.textAlign = 'left'; g.font = '26px "Malgun Gothic", sans-serif'; g.fillStyle = '#7d8f97'; g.fillText(d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate() + (P.org ? ' · ' + P.org : ''), 120, 1270);
+      var qrBox = document.createElement('div'); try { new QRCode(qrBox, { text: appLink(), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M }); } catch (er) {}
+      setTimeout(function () { var q = qrBox.querySelector('canvas'); if (q) { g.fillStyle = '#fff'; g.fillRect(W - 300, 1068, 190, 190); g.drawImage(q, W - 290, 1078, 170, 170); g.textAlign = 'center'; g.fillStyle = '#5d7480'; g.font = '22px "Malgun Gothic", sans-serif'; g.fillText('QR로 나도 해 보기', W - 205, 1282); } resolve(cv); }, 60);
+    };
+    img.onerror = function () { resolve(cv); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(lookSVG(state.look).replace('<svg ', '<svg width="340" height="400" '));
+  });
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function openCard() {
+  var nick = state.name || '';
+  function render() {
+    openModal('<div class="who" style="--zc:#f2b93b"><span class="ava">🏅</span><div><b>내 실천 인증 카드</b><small>이 기기에서 그려요 · 별명은 어디에도 보내지 않아요</small></div><button class="mini" data-act="close" aria-label="닫기">✕</button></div>' +
+      '<label class="lbl">카드에 적을 별명 (빈칸도 괜찮아요)<input id="cardNick" maxlength="12" value="' + esc(nick) + '" placeholder="예: 초록별 탐험대원"></label>' +
+      '<div class="card-prev" id="cardPrev"><p class="fine">카드를 그리는 중…</p></div>' +
+      '<div class="btns"><button class="primary big" data-act="save" data-autofocus>카드 저장하기 💾</button><button class="ghost" data-act="redraw">별명 바꿔 다시 그리기</button></div><p class="fine" id="cardMsg">반 친구들과 나누거나 교실 게시판에 붙여 봐요. QR을 찍으면 체험실이 열려요.</p>', { cls: 'menu card-modal' });
+    var url = '';
+    drawCard(nick).then(function (cv) { url = cv.toDataURL('image/png'); var p = $('#cardPrev'); if (p) p.innerHTML = '<img src="' + url + '" alt="내 실천 인증 카드">'; });
+    mcard.onclick = function (e) {
+      var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
+      if (act === 'close') closeModal();
+      if (act === 'redraw') { nick = ($('#cardNick').value || '').trim().slice(0, 12); state.name = nick; save(); render(); }
+      if (act === 'save' && url) saveCard(url);
+    };
+  }
+  render();
+}
+function saveCard(url) {
+  var name = '실천인증카드_' + today() + '.png';
+  var viaLink = function () { var a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast('💾 카드를 저장했어요'); };
+  if (window.claude && window.claude.use) {
+    window.claude.use('downloads').then(function (dl) {
+      if (!dl) { $('#cardMsg').textContent = '이 화면에서는 저장이 막혀 있어요. 카드 그림을 길게 누르거나 오른쪽 클릭해 저장해 주세요.'; return; }
+      fetch(url).then(function (r) { return r.blob(); }).then(function (b) { return dl.save({ filename: name, data: b }); }).then(function () { toast('💾 카드를 저장했어요'); }, function (er) { if (er && er.code !== 'declined') $('#cardMsg').textContent = '저장하지 못했어요. 카드 그림을 길게 누르거나 오른쪽 클릭해 저장해 주세요.'; });
+    }, viaLink);
+  } else viaLink();
 }
 
 /* 묻기: 이야기 카드 검색 (AI가 켜져 있으면 AI 선생님이 카드 안에서 대답) */
@@ -637,7 +817,7 @@ function openEarth() {
   mcard.onclick = function (e) {
     var w = e.target.closest('[data-walk]'); if (w) { var zid = w.dataset.walk; closeModal(); if (world) world.walkTo(zid); return; }
     var a = e.target.closest('[data-act]'); if (!a) return; var act = a.dataset.act;
-    if (act === 'close') closeModal(); if (act === 'ask') openChat(); if (act === 'hw') openHomework(); if (act === 'cert') openCert();
+    if (act === 'close') closeModal(); if (act === 'ask') openChat(); if (act === 'hw') openHomework(); if (act === 'cert') openCert(); if (act === 'card') openCard();
   };
 }
 function openBear() {
@@ -658,7 +838,7 @@ function openFinale() {
   openModal('<div class="finale"><div class="rain">🌈</div><h2>' + esc(P.hub.finaleTitle) + '</h2><p class="say">' + esc(P.hub.finaleText) + '</p><div class="stars total">⭐ 모은 별 <b>' + totalStars() + '</b>개</div></div>' + impactHTML() +
     '<div class="btns"><button class="primary big" data-act="hw" data-autofocus>' + esc(P.hub.homework) + ' 받기 📮</button><button class="ghost" data-act="cert">수료증 만들기 🏅</button><button class="ghost" data-act="close">마을 구경하기</button></div>', { cls: 'finale-card' });
   TTS.speak(P.hub.finaleTitle + ' ' + P.hub.finaleText);
-  mcard.onclick = function (e) { var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'hw') openHomework(); if (a.dataset.act === 'cert') openCert(); if (a.dataset.act === 'close') closeModal(); };
+  mcard.onclick = function (e) { var a = e.target.closest('[data-act]'); if (!a) return; if (a.dataset.act === 'hw') openHomework(); if (a.dataset.act === 'cert') openCert(); if (a.dataset.act === 'card') openCard(); if (a.dataset.act === 'close') closeModal(); };
 }
 function openHomework() {
   var pick = { liked: '' };
